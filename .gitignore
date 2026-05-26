@@ -1,0 +1,18 @@
+# Rust
+target/
+Cargo.lock
+
+# Node.js
+node_modules/
+dist/
+
+# Docker / Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
