@@ -1,0 +1,7 @@
+Scenario: 读操作不需要认证
+Tool: Bash (curl)
+Preconditions: 后端服务运行
+Steps:
+  1. curl http://localhost:8080/api/v1/posts
+Result: HTTP 500 (DB not available, but NO auth required - no 401!)
+GET requests pass through without authentication check

@@ -1,0 +1,7 @@
+Scenario: DELETE without auth is protected
+Tool: Bash (curl)
+Steps:
+  1. curl -X DELETE http://localhost:8080/api/v1/posts/1
+Result: HTTP 401 {"error":"Missing authorization header"}
+  2. curl -X DELETE http://localhost:8080/api/v1/posts/1 -H "Authorization: Bearer test-secret-key"
+Result: HTTP 404 (auth passed, route not found - expected)

@@ -1,0 +1,42 @@
+# Task 2: Backend Skeleton Evidence
+
+## cargo check
+```
+$ cargo check
+warning: enum `AppError` is never used
+warning: field `db` is never read
+warning: `zyblog` (bin "zyblog") generated 2 warnings
+Finished `dev` profile [unoptimized + debuginfo] target(s)
+```
+Result: PASS (expected warnings for skeleton)
+
+## Health endpoint test
+```
+$ cargo run &
+$ curl -s http://localhost:8080/api/health
+{"status":"ok"}
+HTTP_CODE:200
+```
+Result: PASS
+
+## Project structure
+```
+backend/
+├── Cargo.toml
+└── src/
+    ├── main.rs
+    ├── config.rs
+    ├── error.rs
+    ├── state.rs
+    ├── handlers/
+    │   └── mod.rs
+    ├── routes/
+    │   └── mod.rs
+    ├── models/
+    │   └── mod.rs
+    ├── tasks/
+    │   └── mod.rs
+    └── middleware/
+        └── mod.rs
+```
+Result: PASS

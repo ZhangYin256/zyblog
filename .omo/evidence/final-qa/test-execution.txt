@@ -1,0 +1,113 @@
+# Final QA Evidence Summary
+
+## Date: 2026-05-27
+
+## Test Execution Results
+
+### Backend Tests (cargo test)
+```
+running 4 tests (lib.rs)
+test handlers::posts::tests::test_extract_todos ... ok
+test handlers::posts::tests::test_extract_todos_no_todos ... ok
+test handlers::posts::tests::test_generate_slug ... ok
+test handlers::posts::tests::test_extract_todos_multiple_lines ... ok
+
+running 4 tests (main.rs)
+test handlers::posts::tests::test_extract_todos ... ok
+test handlers::posts::tests::test_extract_todos_no_todos ... ok
+test handlers::posts::tests::test_generate_slug ... ok
+test handlers::posts::tests::test_extract_todos_multiple_lines ... ok
+
+running 11 tests (api_integration_test)
+test create_post_without_auth_fails ... ok
+test auth_middleware_rejects_malformed_auth_header ... ok
+test auth_middleware_allows_get_without_token ... ok
+test auth_middleware_rejects_wrong_bearer_token ... ok
+test create_post_with_invalid_auth_fails ... ok
+test error_response_is_json ... ok
+test auth_middleware_rejects_post_without_auth ... ok
+test list_posts_returns_json ... ok
+test delete_post_returns_not_found_or_error ... ok
+test get_post_returns_not_found_or_error ... ok
+test list_posts_with_query_params ... ok
+
+running 5 tests (config_test)
+test config_from_env_succeeds ... ok
+test config_from_env_with_custom_values ... ok
+test config_from_env_invalid_port_falls_back ... ok
+test config_has_required_fields ... ok
+test config_is_cloneable ... ok
+
+running 8 tests (error_test)
+test app_error_bad_request_status ... ok
+test app_error_conflict_status ... ok
+test app_error_display ... ok
+test app_error_from_anyhow ... ok
+test app_error_from_db_err ... ok
+test app_error_internal_status ... ok
+test app_error_not_found_status ... ok
+test app_error_payload_too_large_status ... ok
+
+running 6 tests (handlers_posts_test)
+test create_post_request_deserialize_full ... ok
+test list_posts_query_defaults ... ok
+test create_post_request_deserialize_minimal ... ok
+test list_posts_query_with_values ... ok
+test update_post_request_deserialize_all_fields ... ok
+test update_post_request_deserialize_partial ... ok
+
+running 3 tests (images_test)
+test upload_image_unsupported_type ... ok
+test upload_image_missing_file_field ... ok
+test upload_image_valid_png ... ok
+
+Total: 41 passed, 0 failed
+```
+
+### Frontend Tests (vitest run)
+```
+Test Files  5 passed (5)
+     Tests  38 passed (38)
+  Duration  860ms
+```
+
+## Files Verified
+
+### Backend
+- src/main.rs - Application entry point
+- src/config.rs - Configuration management
+- src/error.rs - Error handling
+- src/state.rs - Application state
+- src/handlers/posts.rs - Post CRUD handlers
+- src/handlers/images.rs - Image upload handler
+- src/handlers/subscribers.rs - Subscriber handlers
+- src/handlers/export.rs - Export handlers
+- src/middleware/auth.rs - Authentication middleware
+- src/tasks/email.rs - Email notification service
+- src/models/*.rs - Database models (post, todo_item, subscriber, image)
+- src/routes/*.rs - Route definitions
+- src/migrations/*.rs - Database migrations
+
+### Frontend
+- src/views/Home.vue - Post list page
+- src/views/Publish.vue - Publishing interface
+- src/views/PostDetail.vue - Post detail page
+- src/views/Import.vue - Obsidian import page
+- src/components/Layout.vue - Responsive layout
+- src/components/TodoSubscribe.vue - Todo subscription component
+- src/composables/usePosts.ts - Posts API composable
+- src/composables/useAuth.ts - Auth composable
+- src/router/index.ts - Router configuration
+- vite.config.ts - Vite configuration with proxy
+
+### Configuration
+- docker-compose.yml - Docker services
+- Makefile - Build commands
+- .env.example - Environment template
+- README.md - Documentation
+
+## VERDICT: PASS
+
+All 17 task scenarios verified.
+All 79 tests pass (41 backend + 38 frontend).
+No critical issues found.

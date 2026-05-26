@@ -1,0 +1,220 @@
+=== Task 5: Docker Compose Verification ===
+Date: Wed May 27 03:55:33 CST 2026
+
+=== docker-compose.yml ===
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: zyblog-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zyblog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zyblog_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-zyblog}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zyblog}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zyblog-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://zyblog:zyblog_dev@postgres:5432/zyblog}
+      ADMIN_KEY: ${ADMIN_KEY:-dev_admin_key_change_me}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@zyblog.local}
+      RUST_LOG: ${RUST_LOG:-debug}
+    volumes:
+      - ./backend:/app
+      - cargo_cache:/usr/local/cargo/registry
+      - target_cache:/app/target
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: zyblog-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  cargo_cache:
+  target_cache:
+
+=== backend/Dockerfile ===
+# Stage 1: Chef - Prepare dependencies
+FROM rust:1.75-bookworm as chef
+RUN cargo install cargo-chef
+WORKDIR /app
+
+# Stage 2: Planner - Create recipe
+FROM chef as planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# Stage 3: Builder - Build dependencies and application
+FROM chef as builder
+COPY --from=planner /app/recipe.json recipe.json
+# Build dependencies (cached layer)
+RUN cargo chef cook --release --recipe-path recipe.json
+# Build application
+COPY . .
+RUN cargo build --release
+
+# Stage 4: Runtime - Minimal image
+FROM debian:bookworm-slim as runtime
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /app/target/release/zyblog-backend /app/zyblog-backend
+EXPOSE 8080
+CMD ["./zyblog-backend"]
+
+=== frontend/Dockerfile ===
+# Stage 1: Dependencies
+FROM node:20-alpine as dependencies
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+# Stage 2: Build
+FROM node:20-alpine as build
+WORKDIR /app
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+# Stage 3: Development (with hot reload)
+FROM node:20-alpine as development
+WORKDIR /app
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# Stage 4: Production (nginx)
+FROM nginx:alpine as production
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
+=== .env.example ===
+# Database Configuration
+POSTGRES_USER=zyblog
+POSTGRES_PASSWORD=zyblog_dev
+POSTGRES_DB=zyblog
+DATABASE_URL=postgres://zyblog:zyblog_dev@postgres:5432/zyblog
+
+# Backend Configuration
+ADMIN_KEY=dev_admin_key_change_me
+RUST_LOG=debug
+
+# SMTP Configuration (optional for development)
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM=noreply@zyblog.local
+
+# Frontend Configuration
+VITE_API_BASE_URL=http://localhost:8080
+
+=== Makefile ===
+.PHONY: up down logs build test migrate clean
+
+# Start all services in detached mode
+up:
+	docker-compose up -d
+
+# Stop all services
+down:
+	docker-compose down
+
+# Show logs (follow mode)
+logs:
+	docker-compose logs -f
+
+# Show logs for specific service
+logs-backend:
+	docker-compose logs -f backend
+
+logs-frontend:
+	docker-compose logs -f frontend
+
+logs-postgres:
+	docker-compose logs -f postgres
+
+# Build all services
+build:
+	docker-compose build
+
+# Build without cache
+build-no-cache:
+	docker-compose build --no-cache
+
+# Run backend tests
+test:
+	docker-compose exec backend cargo test
+
+# Run database migrations
+migrate:
+	docker-compose exec backend cargo run -- migrate
+
+# Open psql shell
+db-shell:
+	docker-compose exec postgres psql -U zyblog -d zyblog
+
+# Clean up volumes and containers
+clean:
+	docker-compose down -v
+	docker system prune -f
+
+# Restart services
+restart:
+	docker-compose restart
+
+# Show running containers
+ps:
+	docker-compose ps
+
+# Copy .env.example to .env if .env doesn't exist
+env:
+	@test -f .env || cp .env.example .env
+	@echo "Environment file ready. Edit .env to customize."
+
+=== Verification ===
+YAML syntax: VALID (python3 yaml.safe_load)
+Services: postgres, backend, frontend
+Ports: 5432, 8080, 5173
+Variables in .env.example: DATABASE_URL=yes, ADMIN_KEY=yes, SMTP_*=5
+Docker: not installed in env, docker-compose config skipped

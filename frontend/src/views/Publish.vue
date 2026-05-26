@@ -1,0 +1,839 @@
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { NButton, NInput, useMessage } from 'naive-ui'
+import { useDebounceFn } from '@vueuse/core'
+import api from '../lib/api'
+import { useAuth } from '../composables/useAuth'
+
+const router = useRouter()
+const message = useMessage()
+const { isAuthenticated, setAdminKey } = useAuth()
+
+// --- State ---
+const title = ref('')
+const content = ref('')
+const titleInputRef = ref<HTMLInputElement | null>(null)
+const contentRef = ref<HTMLTextAreaElement | null>(null)
+const editorRef = ref<HTMLDivElement | null>(null)
+const isSaving = ref(false)
+const lastSavedAt = ref<Date | null>(null)
+const isDragging = ref(false)
+const isPublishing = ref(false)
+const isEditing = ref(false) // true when editing an already-published post
+const editPostId = ref<string | null>(null)
+
+// --- Auth dialog ---
+const showAuthDialog = ref(false)
+const adminKeyInput = ref('')
+
+// --- Draft key for localStorage ---
+const DRAFT_KEY = 'zyblog_draft'
+const EDIT_KEY_PREFIX = 'zyblog_edit_'
+
+// --- Auto-save with debounce ---
+const debouncedSave = useDebounceFn(() => {
+  saveDraft()
+}, 1500)
+
+function saveDraft() {
+  if (!title.value && !content.value) return
+
+  isSaving.value = true
+  const draft = {
+    title: title.value,
+    content: content.value,
+    savedAt: new Date().toISOString(),
+  }
+
+  const key = isEditing.value ? `${EDIT_KEY_PREFIX}${editPostId.value}` : DRAFT_KEY
+  localStorage.setItem(key, JSON.stringify(draft))
+
+  setTimeout(() => {
+    isSaving.value = false
+    lastSavedAt.value = new Date()
+  }, 300)
+}
+
+function loadDraft() {
+  // Check if we're editing an existing post
+  const urlParams = new URLSearchParams(window.location.search)
+  const editId = urlParams.get('edit')
+
+  if (editId) {
+    isEditing.value = true
+    editPostId.value = editId
+    const saved = localStorage.getItem(`${EDIT_KEY_PREFIX}${editId}`)
+    if (saved) {
+      try {
+        const draft = JSON.parse(saved)
+        title.value = draft.title || ''
+        content.value = draft.content || ''
+      } catch {
+        // corrupted data, ignore
+      }
+    }
+    return
+  }
+
+  // Load regular draft
+  const saved = localStorage.getItem(DRAFT_KEY)
+  if (saved) {
+    try {
+      const draft = JSON.parse(saved)
+      title.value = draft.title || ''
+      content.value = draft.content || ''
+      if (draft.savedAt) {
+        lastSavedAt.value = new Date(draft.savedAt)
+      }
+    } catch {
+      // corrupted data, ignore
+    }
+  }
+}
+
+function clearDraft() {
+  const key = isEditing.value ? `${EDIT_KEY_PREFIX}${editPostId.value}` : DRAFT_KEY
+  localStorage.removeItem(key)
+  title.value = ''
+  content.value = ''
+  lastSavedAt.value = null
+}
+
+// --- Watch for changes ---
+watch([title, content], () => {
+  debouncedSave()
+})
+
+// --- Saved status display ---
+const savedStatusText = computed(() => {
+  if (isSaving.value) return '保存中...'
+  if (!lastSavedAt.value) return ''
+  const now = new Date()
+  const diff = now.getTime() - lastSavedAt.value.getTime()
+  if (diff < 5000) return '已保存'
+  if (diff < 60000) return `${Math.floor(diff / 1000)}秒前保存`
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前保存`
+  return '已保存草稿'
+})
+
+// --- Formatting ---
+function wrapSelection(prefix: string, suffix: string = '') {
+  const textarea = contentRef.value
+  if (!textarea) return
+
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const selected = content.value.substring(start, end)
+  const replacement = `${prefix}${selected}${suffix}`
+
+  content.value =
+    content.value.substring(0, start) + replacement + content.value.substring(end)
+
+  nextTick(() => {
+    textarea.focus()
+    const newCursorPos = start + prefix.length + selected.length + suffix.length
+    textarea.setSelectionRange(newCursorPos, newCursorPos)
+  })
+}
+
+function toggleBold() {
+  wrapSelection('**', '**')
+}
+
+function insertList() {
+  const textarea = contentRef.value
+  if (!textarea) return
+
+  const start = textarea.selectionStart
+  const lineStart = content.value.lastIndexOf('\n', start - 1) + 1
+  const lineEnd = content.value.indexOf('\n', start)
+  const actualEnd = lineEnd === -1 ? content.value.length : lineEnd
+  const line = content.value.substring(lineStart, actualEnd)
+
+  if (line.startsWith('- ')) {
+    // Remove list marker
+    content.value =
+      content.value.substring(0, lineStart) +
+      line.substring(2) +
+      content.value.substring(actualEnd)
+  } else {
+    // Add list marker
+    content.value =
+      content.value.substring(0, lineStart) +
+      '- ' + line +
+      content.value.substring(actualEnd)
+  }
+
+  nextTick(() => {
+    textarea.focus()
+  })
+}
+
+// --- Image handling ---
+function insertImageMarkdown(url: string, alt: string = 'image') {
+  const textarea = contentRef.value
+  if (!textarea) return
+
+  const start = textarea.selectionStart
+  const markdown = `![${alt}](${url})`
+
+  content.value =
+    content.value.substring(0, start) + markdown + content.value.substring(start)
+
+  nextTick(() => {
+    textarea.focus()
+    const newPos = start + markdown.length
+    textarea.setSelectionRange(newPos, newPos)
+  })
+}
+
+function handleImageUpload() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    await processImageFile(file)
+  }
+  input.click()
+}
+
+async function processImageFile(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const { data } = await api.post('/api/v1/images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    insertImageMarkdown(data.url, file.name)
+    message.success('图片已上传')
+  } catch {
+    message.error('图片上传失败')
+  }
+}
+
+// Paste handler for images
+function handlePaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault()
+      const file = item.getAsFile()
+      if (file) {
+        processImageFile(file)
+      }
+      return
+    }
+  }
+}
+
+// Drag and drop
+function handleDragOver(e: DragEvent) {
+  e.preventDefault()
+  isDragging.value = true
+}
+
+function handleDragLeave() {
+  isDragging.value = false
+}
+
+async function handleDrop(e: DragEvent) {
+  e.preventDefault()
+  isDragging.value = false
+
+  const files = e.dataTransfer?.files
+  if (!files) return
+
+  for (const file of files) {
+    if (file.type.startsWith('image/')) {
+      await processImageFile(file)
+    }
+  }
+}
+
+// --- Keyboard shortcuts ---
+function handleKeydown(e: KeyboardEvent) {
+  // Ctrl/Cmd + B for bold
+  if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+    e.preventDefault()
+    toggleBold()
+  }
+  // Ctrl/Cmd + S for save
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault()
+    saveDraft()
+  }
+  // Ctrl/Cmd + Enter for publish
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault()
+    handlePublish()
+  }
+}
+
+// --- Auth dialog handlers ---
+function handleAuthSubmit() {
+  if (!adminKeyInput.value.trim()) {
+    message.warning('请输入管理密钥')
+    return
+  }
+  setAdminKey(adminKeyInput.value.trim())
+  showAuthDialog.value = false
+  adminKeyInput.value = ''
+  message.success('认证成功')
+}
+
+// --- Publish ---
+async function handlePublish() {
+  if (!title.value.trim()) {
+    message.warning('请输入文章标题')
+    return
+  }
+  if (!content.value.trim()) {
+    message.warning('请输入文章内容')
+    return
+  }
+
+  // Check auth before publishing
+  if (!isAuthenticated.value) {
+    showAuthDialog.value = true
+    return
+  }
+
+  isPublishing.value = true
+
+  try {
+    const { data } = await api.post('/api/v1/posts', {
+      title: title.value.trim(),
+      content: content.value.trim(),
+      status: 'published',
+    })
+
+    // Clear draft after successful publish
+    clearDraft()
+
+    message.success('发布成功！')
+
+    // Navigate to post detail (data.id is the post id from flattened response)
+    router.push(`/posts/${data.id}`)
+  } catch (err: any) {
+    const status = err.response?.status
+    if (status === 401) {
+      message.error('认证失败，请检查管理密钥')
+      showAuthDialog.value = true
+    } else {
+      message.error('发布失败，请重试')
+    }
+  } finally {
+    isPublishing.value = false
+  }
+}
+
+// --- Lifecycle ---
+onMounted(() => {
+  loadDraft()
+  document.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
+</script>
+
+<template>
+  <div class="publish-page">
+    <!-- Page Header -->
+    <header class="publish-header">
+      <div class="publish-header__left">
+        <h1 class="publish-header__title">
+          {{ isEditing ? '编辑文章' : '写点什么' }}
+        </h1>
+        <span v-if="savedStatusText" class="publish-header__status" :class="{ 'is-saving': isSaving }">
+          {{ savedStatusText }}
+        </span>
+      </div>
+      <div class="publish-header__right">
+        <NButton
+          quaternary
+          size="small"
+          @click="clearDraft"
+          :disabled="!title && !content"
+        >
+          清空
+        </NButton>
+        <NButton
+          type="primary"
+          :loading="isPublishing"
+          @click="handlePublish"
+          :disabled="!title.trim() || !content.trim()"
+        >
+          {{ isPublishing ? '发布中...' : '发布' }}
+        </NButton>
+      </div>
+    </header>
+
+    <!-- Editor Area -->
+    <div
+      ref="editorRef"
+      class="publish-editor"
+      :class="{ 'is-dragging': isDragging }"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
+      <!-- Title Input -->
+      <div class="publish-title-wrapper">
+        <input
+          ref="titleInputRef"
+          v-model="title"
+          type="text"
+          class="publish-title"
+          placeholder="无题"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="publish-title__border"></div>
+      </div>
+
+      <!-- Formatting Toolbar -->
+      <div class="publish-toolbar">
+        <button
+          class="toolbar-btn"
+          title="加粗 (Ctrl+B)"
+          @click="toggleBold"
+        >
+          <span class="toolbar-btn__icon">B</span>
+        </button>
+        <button
+          class="toolbar-btn"
+          title="列表"
+          @click="insertList"
+        >
+          <span class="toolbar-btn__icon">☰</span>
+        </button>
+        <div class="toolbar-divider"></div>
+        <button
+          class="toolbar-btn"
+          title="插入图片"
+          @click="handleImageUpload"
+        >
+          <span class="toolbar-btn__icon">⊕</span>
+        </button>
+      </div>
+
+      <!-- Content Textarea -->
+      <div class="publish-content-wrapper">
+        <textarea
+          ref="contentRef"
+          v-model="content"
+          class="publish-content"
+          placeholder="开始写作...
+
+支持 Markdown 语法：
+**加粗** — 列表项以 - 开头
+插入图片：点击上方工具栏或直接粘贴/拖拽"
+          @paste="handlePaste"
+        ></textarea>
+      </div>
+
+      <!-- Drag overlay -->
+      <div v-if="isDragging" class="publish-drag-overlay">
+        <div class="publish-drag-overlay__content">
+          <span class="publish-drag-overlay__icon">⊕</span>
+          <span>松开鼠标上传图片</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Hints -->
+    <footer class="publish-footer">
+      <span class="publish-footer__hint">
+        <kbd>Ctrl</kbd>+<kbd>B</kbd> 加粗 · <kbd>Ctrl</kbd>+<kbd>S</kbd> 保存 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 发布
+      </span>
+      <span class="publish-footer__hint">
+        支持粘贴和拖拽图片
+      </span>
+    </footer>
+
+    <!-- Auth Dialog -->
+    <div v-if="showAuthDialog" class="auth-overlay" @click.self="showAuthDialog = false">
+      <div class="auth-dialog">
+        <h3 class="auth-dialog__title">管理员认证</h3>
+        <p class="auth-dialog__desc">
+          请输入管理密钥以发布文章
+        </p>
+        <div class="auth-dialog__field">
+          <label class="auth-dialog__label" for="admin-key">管理密钥</label>
+          <n-input
+            id="admin-key"
+            v-model:value="adminKeyInput"
+            type="password"
+            placeholder="请输入 ADMIN_KEY"
+            @keyup.enter="handleAuthSubmit"
+          />
+        </div>
+        <div class="auth-dialog__actions">
+          <n-button @click="showAuthDialog = false">取消</n-button>
+          <n-button type="primary" @click="handleAuthSubmit">确认</n-button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* --- Page Layout --- */
+.publish-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--space-8) * 2);
+  gap: var(--space-4);
+}
+
+/* --- Header --- */
+.publish-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.publish-header__left {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.publish-header__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.publish-header__status {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.publish-header__status.is-saving {
+  color: var(--color-accent);
+}
+
+.publish-header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* --- Editor Container --- */
+.publish-editor {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-10);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.publish-editor:focus-within {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border);
+}
+
+.publish-editor.is-dragging {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-light);
+}
+
+/* --- Title Input --- */
+.publish-title-wrapper {
+  position: relative;
+}
+
+.publish-title {
+  width: 100%;
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: var(--space-2) 0;
+  letter-spacing: -0.03em;
+  caret-color: var(--color-accent);
+}
+
+.publish-title::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 0.6;
+}
+
+.publish-title__border {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-border-light);
+  transition: background var(--transition-base);
+}
+
+.publish-title:focus + .publish-title__border {
+  background: var(--color-accent);
+}
+
+/* --- Toolbar --- */
+.publish-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.publish-editor:focus-within .publish-toolbar {
+  opacity: 1;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  font-family: var(--font-body);
+}
+
+.toolbar-btn:hover {
+  background: var(--color-bg-sunken);
+  color: var(--color-text-primary);
+}
+
+.toolbar-btn:active {
+  background: var(--color-border-light);
+}
+
+.toolbar-btn__icon {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border-light);
+  margin: 0 var(--space-1);
+}
+
+/* --- Content Textarea --- */
+.publish-content-wrapper {
+  flex: 1;
+  display: flex;
+}
+
+.publish-content {
+  width: 100%;
+  min-height: 400px;
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: 1.8;
+  color: var(--color-text-primary);
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+  padding: var(--space-2) 0;
+  caret-color: var(--color-accent);
+}
+
+.publish-content::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 0.5;
+  font-size: var(--text-base);
+  line-height: 2;
+}
+
+/* --- Drag Overlay --- */
+.publish-drag-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(196, 93, 62, 0.06);
+  border: 2px dashed var(--color-accent);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.publish-drag-overlay__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-accent);
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+
+.publish-drag-overlay__icon {
+  font-size: 48px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+/* --- Footer --- */
+.publish-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.publish-footer__hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 0 var(--color-border);
+  line-height: 1.4;
+}
+
+/* --- Mobile Responsive --- */
+@media (max-width: 767px) {
+  .publish-editor {
+    padding: var(--space-4) var(--space-4);
+    border-radius: var(--radius-md);
+  }
+
+  .publish-title {
+    font-size: var(--text-2xl);
+  }
+
+  .publish-content {
+    font-size: var(--text-base);
+    min-height: 300px;
+  }
+
+  .publish-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .publish-header__right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .publish-footer {
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .publish-editor {
+    padding: var(--space-6) var(--space-8);
+  }
+
+  .publish-title {
+    font-size: var(--text-3xl);
+  }
+}
+
+/* --- Auth Dialog --- */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.auth-dialog {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  width: 90%;
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
+}
+
+.auth-dialog__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.auth-dialog__desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-6);
+}
+
+.auth-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.auth-dialog__label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.auth-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+</style>

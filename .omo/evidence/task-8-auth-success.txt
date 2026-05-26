@@ -1,0 +1,10 @@
+Scenario: 认证成功（有效 token）
+Tool: Bash (curl)
+Preconditions: ADMIN_KEY=test-secret-key
+Steps:
+  1. curl -X POST http://localhost:8080/api/v1/posts \
+       -H "Authorization: Bearer test-secret-key" \
+       -H "Content-Type: application/json" \
+       -d '{"title":"Auth Test","content":"Hello","status":"draft"}'
+Result: HTTP 500 (DB not available, but auth middleware PASSED - no 401)
+Evidence: Auth token validated correctly, request reached handler

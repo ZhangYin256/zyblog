@@ -1,0 +1,14 @@
+$ ls -la /home/zy/zyblog/backend/src/migrations/
+total 28
+drwxr-xr-x 2 zy zy 4096 May 27 04:05 .
+drwxr-xr-x 8 zy zy 4096 May 27 04:04 ..
+-rw-r--r-- 1 zy zy 2017 May 27 04:04 m20240101_000001_create_posts_table.rs
+-rw-r--r-- 1 zy zy 1791 May 27 04:04 m20240101_000002_create_todo_items_table.rs
+-rw-r--r-- 1 zy zy 1529 May 27 04:04 m20240101_000003_create_subscribers_table.rs
+-rw-r--r-- 1 zy zy 1662 May 27 04:05 m20240101_000004_create_images_table.rs
+-rw-r--r-- 1 zy zy  679 May 27 04:05 mod.rs
+
+$ find /home/zy/zyblog/backend/src/migrations -name "*.rs" | wc -l
+5
+
+PASS: 5 .rs files exist (4 migrations + mod.rs)

@@ -1,0 +1,12 @@
+$ cd /home/zy/zyblog/backend && cargo check
+    Checking zyblog v0.1.0 (/home/zy/zyblog/backend)
+warning: `zyblog` (bin "zyblog") generated 19 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.05s
+
+PASS: cargo check succeeded (only warnings about unused code, no errors)
+
+Models created:
+- post.rs: Post entity (id, title, slug, content, excerpt, cover_image, published, created_at, updated_at)
+- todo_item.rs: TodoItem entity (id, title, description, completed, created_at, updated_at)
+- subscriber.rs: Subscriber entity (id, email, name, confirmed, created_at)
+- image.rs: Image entity (id, filename, original_name, mime_type, size, path, created_at)

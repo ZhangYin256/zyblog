@@ -1,0 +1,10 @@
+Scenario: 认证失败（无效 token）
+Tool: Bash (curl)
+Preconditions: ADMIN_KEY=test-secret-key
+Steps:
+  1. curl -X POST http://localhost:8080/api/v1/posts \
+       -H "Authorization: Bearer wrong-key" \
+       -H "Content-Type: application/json" \
+       -d '{"title":"Auth Test","content":"Hello","status":"draft"}'
+Result: HTTP 401
+Response: {"error":"Invalid token"}

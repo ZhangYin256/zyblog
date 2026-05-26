@@ -1,0 +1,69 @@
+== ZYBlog Code Quality Report ==
+Date: 2026-05-27
+
+== TEST RESULTS ==
+
+Backend (cargo test):
+  Unit tests (lib.rs): 4 passed
+  Unit tests (main.rs): 4 passed (duplicates of lib)
+  API integration tests: 11 passed
+  Config tests: 5 passed
+  Error tests: 8 passed
+  Handler post tests: 6 passed
+  Image tests: 3 passed
+  Doc tests: 0 (none defined)
+  TOTAL: 41 passed, 0 failed
+
+Frontend (vitest run):
+  Test files: 5 passed (5)
+  Tests: 38 passed (38)
+  Duration: 865ms
+
+== unwrap() CHECK ==
+
+Found 1 instance:
+  - backend/src/handlers/images.rs:90
+    let ext = mime_to_extension(&mime).unwrap(); // safe: already validated
+    VERDICT: Acceptable - guarded by prior validation of MIME type
+
+Other unwrap-family calls (17 instances): all unwrap_or/unwrap_or_else/unwrap_or_default
+  - Used correctly for config fallbacks and default values
+  - No unsafe unwrap() on Result types
+
+== console.log CHECK ==
+
+Frontend src/: 0 instances found
+VERDICT: CLEAN
+
+== COMMENTED-OUT CODE CHECK ==
+
+Frontend (.ts/.vue):
+  - All 19 matches are section markers/documentation comments
+  - Examples: "// Format tags with # prefix", "// Draft key for localStorage"
+  - No dead/commented-out functional code found
+
+Backend (.rs):
+  - All 14 matches are doc comments (///) or section markers (//)
+  - No dead/commented-out functional code found
+
+HTML template comments: All are structural section markers (<!-- Sidebar -->, etc.)
+VERDICT: CLEAN
+
+== UNUSED CODE (Rust Warnings) ==
+
+13 compiler warnings:
+  - 11 warnings: unused structs/enums in migration files (SeaORM pattern)
+  - 1 warning: unused struct `Model` in models/image.rs
+  - 1 warning: unused enum `Relation` in models/image.rs
+
+No #[allow(unused)] suppressions found.
+VERDICT: Minor - migration code warnings are typical for SeaORM; image model warnings need review
+
+== SUMMARY ==
+
+Build: PASS (both backend and frontend compile)
+Tests: 41 pass (backend) + 38 pass (frontend) = 79 total, 0 fail
+Files: 2 clean / 1 minor issue (1 acceptable unwrap, 13 compiler warnings)
+VERDICT: PASS - Code quality is good. The single unwrap() is safely guarded.
+         Compiler warnings in migration files are typical SeaORM boilerplate.
+         Consider suppressing migration warnings with #[allow(dead_code)] on Migrator struct.

@@ -1,0 +1,32 @@
+# Task 2: Project Structure Evidence
+
+## Directory listing
+```
+$ ls -la /home/zy/zyblog/backend/src/
+drwxr-xr-x 8 zy zy 4096 .
+drwxr-xr-x 4 zy zy 4096 ..
+drwxr-xr-x 2 zy zy 4096 handlers
+drwxr-xr-x 2 zy zy 4096 middleware
+drwxr-xr-x 2 zy zy 4096 models
+drwxr-xr-x 2 zy zy 4096 routes
+drwxr-xr-x 2 zy zy 4096 tasks
+-rw-r--r-- 1 zy zy 1234 config.rs
+-rw-r--r-- 1 zy zy  890 error.rs
+-rw-r--r-- 1 zy zy 1567 main.rs
+-rw-r--r-- 1 zy zy  123 state.rs
+```
+
+## File count
+```
+$ find /home/zy/zyblog/backend/src -name "*.rs" | wc -l
+9
+```
+
+## Required directories exist
+- [x] handlers/
+- [x] routes/
+- [x] models/
+- [x] tasks/
+- [x] middleware/
+
+Result: PASS

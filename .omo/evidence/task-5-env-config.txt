@@ -1,0 +1,28 @@
+=== Task 5: Environment Variables Verification ===
+Date: Wed May 27 03:55:40 CST 2026
+
+# Database Configuration
+POSTGRES_USER=zyblog
+POSTGRES_PASSWORD=zyblog_dev
+POSTGRES_DB=zyblog
+DATABASE_URL=postgres://zyblog:zyblog_dev@postgres:5432/zyblog
+
+# Backend Configuration
+ADMIN_KEY=dev_admin_key_change_me
+RUST_LOG=debug
+
+# SMTP Configuration (optional for development)
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM=noreply@zyblog.local
+
+# Frontend Configuration
+VITE_API_BASE_URL=http://localhost:8080
+
+=== Variable Count ===
+DATABASE_URL: 1
+ADMIN_KEY: 1
+SMTP_*: 5
+5
