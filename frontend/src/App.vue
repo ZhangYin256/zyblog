@@ -3,7 +3,7 @@ import { NConfigProvider, NMessageProvider, NNotificationProvider } from 'naive-
 import type { GlobalThemeOverrides } from 'naive-ui'
 import AppLayout from './components/Layout.vue'
 
-// Naive UI theme overrides to match our design system
+// Naive UI 主题覆盖，匹配我们的设计系统
 const themeOverrides: GlobalThemeOverrides = {
   common: {
     primaryColor: 'var(--color-accent)',

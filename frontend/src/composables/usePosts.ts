@@ -1,7 +1,7 @@
 import { ref, reactive } from 'vue'
 import api from '../lib/api'
 
-/** Post shape returned by the API */
+/** API 返回的文章结构 */
 export interface Post {
   id: number
   title: string
@@ -14,7 +14,7 @@ export interface Post {
   updated_at: string
 }
 
-/** Paginated list response */
+/** 分页列表响应 */
 export interface PostListResponse {
   items: Post[]
   total: number
@@ -22,7 +22,7 @@ export interface PostListResponse {
   per_page: number
 }
 
-/** Todo item returned by the API */
+/** API 返回的待办事项 */
 export interface TodoItem {
   id: number
   post_id: number
@@ -32,15 +32,15 @@ export interface TodoItem {
   created_at: string
 }
 
-/** Subscriber request payload */
+/** 订阅者请求负载 */
 export interface CreateSubscriberPayload {
   email: string
   name?: string
 }
 
 /**
- * Composable for post-related API operations.
- * Provides reactive state and methods for fetching, creating, and managing posts.
+ * 文章相关 API 操作的组合式函数
+ * 提供响应式状态和方法，用于获取、创建和管理文章
  */
 export function usePosts() {
   const posts = ref<Post[]>([])
@@ -56,10 +56,10 @@ export function usePosts() {
   })
 
   /**
-   * Fetch paginated post list.
-   * @param page - Page number (1-based)
-   * @param perPage - Items per page
-   * @param status - Optional filter by status
+   * 获取分页文章列表
+   * @param page - 页码（从 1 开始）
+   * @param perPage - 每页条目数
+   * @param status - 可选的状态筛选
    */
   async function fetchPosts(page = 1, perPage = 10, status?: string) {
     loading.value = true
@@ -85,8 +85,8 @@ export function usePosts() {
   }
 
   /**
-   * Fetch a single post by ID.
-   * @param id - Post ID
+   * 根据 ID 获取单篇文章
+   * @param id - 文章 ID
    */
   async function fetchPost(id: number | string) {
     loading.value = true
@@ -106,8 +106,8 @@ export function usePosts() {
   }
 
   /**
-   * Fetch todo items for a specific post.
-   * @param id - Post ID
+   * 获取特定文章的待办事项
+   * @param id - 文章 ID
    */
   async function fetchPostTodos(id: number | string) {
     try {
@@ -120,8 +120,8 @@ export function usePosts() {
   }
 
   /**
-   * Create a new subscriber (email subscription).
-   * @param payload - Subscriber email and optional name
+   * 创建新订阅者（邮箱订阅）
+   * @param payload - 订阅者邮箱和可选名称
    */
   async function createSubscriber(payload: CreateSubscriberPayload) {
     try {
@@ -134,8 +134,8 @@ export function usePosts() {
   }
 
   /**
-   * Format ISO date string to a readable format.
-   * @param isoDate - ISO 8601 date string
+   * 将 ISO 日期字符串格式化为可读格式
+   * @param isoDate - ISO 8601 日期字符串
    */
   function formatDate(isoDate: string): string {
     const date = new Date(isoDate)
@@ -147,7 +147,7 @@ export function usePosts() {
   }
 
   return {
-    // State
+    // 状态
     posts,
     currentPost,
     postTodos,
@@ -155,7 +155,7 @@ export function usePosts() {
     error,
     pagination,
 
-    // Methods
+    // 方法
     fetchPosts,
     fetchPost,
     fetchPostTodos,

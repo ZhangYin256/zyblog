@@ -10,7 +10,7 @@ const router = useRouter()
 const message = useMessage()
 const { isAuthenticated, setAdminKey } = useAuth()
 
-// --- State ---
+// --- 状态 ---
 const title = ref('')
 const content = ref('')
 const titleInputRef = ref<HTMLInputElement | null>(null)
@@ -23,15 +23,15 @@ const isPublishing = ref(false)
 const isEditing = ref(false) // true when editing an already-published post
 const editPostId = ref<string | null>(null)
 
-// --- Auth dialog ---
+// --- 认证弹窗 ---
 const showAuthDialog = ref(false)
 const adminKeyInput = ref('')
 
-// --- Draft key for localStorage ---
+// --- localStorage 草稿键 ---
 const DRAFT_KEY = 'zyblog_draft'
 const EDIT_KEY_PREFIX = 'zyblog_edit_'
 
-// --- Auto-save with debounce ---
+// --- 防抖自动保存 ---
 const debouncedSave = useDebounceFn(() => {
   saveDraft()
 }, 1500)
@@ -56,7 +56,7 @@ function saveDraft() {
 }
 
 function loadDraft() {
-  // Check if we're editing an existing post
+  // 检查是否正在编辑现有文章
   const urlParams = new URLSearchParams(window.location.search)
   const editId = urlParams.get('edit')
 
@@ -70,13 +70,13 @@ function loadDraft() {
         title.value = draft.title || ''
         content.value = draft.content || ''
       } catch {
-        // corrupted data, ignore
+        // 数据损坏，忽略
       }
     }
     return
   }
 
-  // Load regular draft
+  // 加载常规草稿
   const saved = localStorage.getItem(DRAFT_KEY)
   if (saved) {
     try {
@@ -87,7 +87,7 @@ function loadDraft() {
         lastSavedAt.value = new Date(draft.savedAt)
       }
     } catch {
-      // corrupted data, ignore
+      // 数据损坏，忽略
     }
   }
 }
@@ -100,12 +100,12 @@ function clearDraft() {
   lastSavedAt.value = null
 }
 
-// --- Watch for changes ---
+// --- 监听变化 ---
 watch([title, content], () => {
   debouncedSave()
 })
 
-// --- Saved status display ---
+// --- 保存状态显示 ---
 const savedStatusText = computed(() => {
   if (isSaving.value) return '保存中...'
   if (!lastSavedAt.value) return ''
@@ -117,7 +117,7 @@ const savedStatusText = computed(() => {
   return '已保存草稿'
 })
 
-// --- Formatting ---
+// --- 格式化 ---
 function wrapSelection(prefix: string, suffix: string = '') {
   const textarea = contentRef.value
   if (!textarea) return
@@ -152,13 +152,13 @@ function insertList() {
   const line = content.value.substring(lineStart, actualEnd)
 
   if (line.startsWith('- ')) {
-    // Remove list marker
+    // 移除列表标记
     content.value =
       content.value.substring(0, lineStart) +
       line.substring(2) +
       content.value.substring(actualEnd)
   } else {
-    // Add list marker
+    // 添加列表标记
     content.value =
       content.value.substring(0, lineStart) +
       '- ' + line +
@@ -170,7 +170,7 @@ function insertList() {
   })
 }
 
-// --- Image handling ---
+// --- 图片处理 ---
 function insertImageMarkdown(url: string, alt: string = 'image') {
   const textarea = contentRef.value
   if (!textarea) return
@@ -215,7 +215,7 @@ async function processImageFile(file: File) {
   }
 }
 
-// Paste handler for images
+// 图片粘贴处理器
 function handlePaste(e: ClipboardEvent) {
   const items = e.clipboardData?.items
   if (!items) return
@@ -232,7 +232,7 @@ function handlePaste(e: ClipboardEvent) {
   }
 }
 
-// Drag and drop
+// 拖放
 function handleDragOver(e: DragEvent) {
   e.preventDefault()
   isDragging.value = true
@@ -256,26 +256,26 @@ async function handleDrop(e: DragEvent) {
   }
 }
 
-// --- Keyboard shortcuts ---
+// --- 键盘快捷键 ---
 function handleKeydown(e: KeyboardEvent) {
-  // Ctrl/Cmd + B for bold
+  // Ctrl/Cmd + B 加粗
   if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
     e.preventDefault()
     toggleBold()
   }
-  // Ctrl/Cmd + S for save
+  // Ctrl/Cmd + S 保存
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault()
     saveDraft()
   }
-  // Ctrl/Cmd + Enter for publish
+  // Ctrl/Cmd + Enter 发布
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault()
     handlePublish()
   }
 }
 
-// --- Auth dialog handlers ---
+// --- 认证弹窗处理器 ---
 function handleAuthSubmit() {
   if (!adminKeyInput.value.trim()) {
     message.warning('请输入管理密钥')
@@ -287,7 +287,7 @@ function handleAuthSubmit() {
   message.success('认证成功')
 }
 
-// --- Publish ---
+// --- 发布 ---
 async function handlePublish() {
   if (!title.value.trim()) {
     message.warning('请输入文章标题')
@@ -298,7 +298,7 @@ async function handlePublish() {
     return
   }
 
-  // Check auth before publishing
+  // 发布前检查认证
   if (!isAuthenticated.value) {
     showAuthDialog.value = true
     return
@@ -313,12 +313,12 @@ async function handlePublish() {
       status: 'published',
     })
 
-    // Clear draft after successful publish
+    // 发布成功后清除草稿
     clearDraft()
 
     message.success('发布成功！')
 
-    // Navigate to post detail (data.id is the post id from flattened response)
+    // 导航到文章详情（data.id 是扁平化响应中的文章 ID）
     router.push(`/posts/${data.id}`)
   } catch (err: any) {
     const status = err.response?.status
@@ -333,7 +333,7 @@ async function handlePublish() {
   }
 }
 
-// --- Lifecycle ---
+// --- 生命周期 ---
 onMounted(() => {
   loadDraft()
   document.addEventListener('keydown', handleKeydown)
@@ -486,7 +486,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* --- Page Layout --- */
+/* --- 页面布局 --- */
 .publish-page {
   display: flex;
   flex-direction: column;
@@ -494,7 +494,7 @@ onUnmounted(() => {
   gap: var(--space-4);
 }
 
-/* --- Header --- */
+/* --- 头部 --- */
 .publish-header {
   display: flex;
   align-items: center;
@@ -533,7 +533,7 @@ onUnmounted(() => {
   gap: var(--space-2);
 }
 
-/* --- Editor Container --- */
+/* --- 编辑器容器 --- */
 .publish-editor {
   position: relative;
   flex: 1;
@@ -558,7 +558,7 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px var(--color-accent-light);
 }
 
-/* --- Title Input --- */
+/* --- 标题输入 --- */
 .publish-title-wrapper {
   position: relative;
 }
@@ -597,7 +597,7 @@ onUnmounted(() => {
   background: var(--color-accent);
 }
 
-/* --- Toolbar --- */
+/* --- 工具栏 --- */
 .publish-toolbar {
   display: flex;
   align-items: center;
@@ -648,7 +648,7 @@ onUnmounted(() => {
   margin: 0 var(--space-1);
 }
 
-/* --- Content Textarea --- */
+/* --- 内容文本区域 --- */
 .publish-content-wrapper {
   flex: 1;
   display: flex;
@@ -677,7 +677,7 @@ onUnmounted(() => {
   line-height: 2;
 }
 
-/* --- Drag Overlay --- */
+/* --- 拖拽遮罩 --- */
 .publish-drag-overlay {
   position: absolute;
   inset: 0;
@@ -707,7 +707,7 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
-/* --- Footer --- */
+/* --- 底部 --- */
 .publish-footer {
   display: flex;
   align-items: center;
@@ -739,7 +739,7 @@ kbd {
   line-height: 1.4;
 }
 
-/* --- Mobile Responsive --- */
+/* --- 移动端响应式 --- */
 @media (max-width: 767px) {
   .publish-editor {
     padding: var(--space-4) var(--space-4);
@@ -783,7 +783,7 @@ kbd {
   }
 }
 
-/* --- Auth Dialog --- */
+/* --- 认证弹窗 --- */
 .auth-overlay {
   position: fixed;
   inset: 0;

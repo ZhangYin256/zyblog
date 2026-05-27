@@ -1,124 +1,124 @@
 # ZYBlog
 
-A modern blog platform built with Vue 3 + Axum (Rust) + PostgreSQL + SeaORM.
+一个使用 Vue 3 + Axum (Rust) + PostgreSQL + SeaORM 构建的现代化博客平台。
 
-## Tech Stack
+## 技术栈
 
-- **Frontend**: Vue 3 + Vite
-- **Backend**: Axum (Rust)
-- **Database**: PostgreSQL 15
+- **前端**: Vue 3 + Vite
+- **后端**: Axum (Rust)
+- **数据库**: PostgreSQL 15
 - **ORM**: SeaORM
-- **API Docs**: utoipa (OpenAPI 3.0) + Swagger UI
+- **API 文档**: utoipa (OpenAPI 3.0) + Swagger UI
 
-## Quick Start
+## 快速开始
 
-### Prerequisites
+### 前置要求
 
-- Docker and Docker Compose
-- (Optional) Rust toolchain for local development
+- Docker 和 Docker Compose
+- （可选）Rust 工具链，用于本地开发
 
-### Using Docker
+### 使用 Docker
 
 ```bash
-# Clone the repo
+# 克隆仓库
 git clone <repo-url>
 cd zyblog
 
-# Copy environment file
+# 复制环境变量文件
 cp .env.example .env
 
-# Edit .env to set your ADMIN_KEY and other settings
+# 编辑 .env 设置你的 ADMIN_KEY 和其他配置
 # vim .env
 
-# Start all services
+# 启动所有服务
 docker-compose up -d
 
-# Run database migrations
+# 运行数据库迁移
 make migrate
 ```
 
-The application will be available at:
+应用将在以下地址可用：
 
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8080
+- **前端**: http://localhost:5173
+- **后端 API**: http://localhost:8080
 - **Swagger UI**: http://localhost:8080/swagger-ui/
 
-### Local Development
+### 本地开发
 
 ```bash
-# Start only the database
+# 仅启动数据库
 docker-compose up -d postgres
 
-# Set environment variables
+# 设置环境变量
 export DATABASE_URL=postgres://zyblog:zyblog_dev@localhost:5432/zyblog
 export ADMIN_KEY=your_admin_key
 
-# Run backend
+# 运行后端
 cd backend
 cargo run
 
-# Run frontend (in another terminal)
+# 运行前端（在另一个终端）
 cd frontend
 npm install
 npm run dev
 ```
 
-## Environment Variables
+## 环境变量
 
-| Variable | Description | Default |
+| 变量 | 说明 | 默认值 |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string | `postgres://zyblog:zyblog_dev@postgres:5432/zyblog` |
-| `ADMIN_KEY` | Bearer token for admin API access | (required) |
-| `SERVER_ADDR` | Backend listen address | `0.0.0.0:8080` |
-| `RUST_LOG` | Log level | `zyblog=debug,tower_http=debug` |
-| `SMTP_HOST` | SMTP server for email notifications | (empty) |
-| `SMTP_PORT` | SMTP port | `587` |
-| `SMTP_USERNAME` | SMTP username | (empty) |
-| `SMTP_PASSWORD` | SMTP password | (empty) |
-| `SMTP_FROM` | Sender email address | `noreply@zyblog.local` |
-| `VITE_API_BASE_URL` | Frontend API base URL | `http://localhost:8080` |
+| `DATABASE_URL` | PostgreSQL 连接字符串 | `postgres://zyblog:zyblog_dev@postgres:5432/zyblog` |
+| `ADMIN_KEY` | 管理员 API 访问的 Bearer 令牌 | （必填） |
+| `SERVER_ADDR` | 后端监听地址 | `0.0.0.0:8080` |
+| `RUST_LOG` | 日志级别 | `zyblog=debug,tower_http=debug` |
+| `SMTP_HOST` | 邮件通知的 SMTP 服务器 | （空） |
+| `SMTP_PORT` | SMTP 端口 | `587` |
+| `SMTP_USERNAME` | SMTP 用户名 | （空） |
+| `SMTP_PASSWORD` | SMTP 密码 | （空） |
+| `SMTP_FROM` | 发件人邮箱地址 | `noreply@zyblog.local` |
+| `VITE_API_BASE_URL` | 前端 API 基础 URL | `http://localhost:8080` |
 
-## API Overview
+## API 概览
 
-All endpoints are prefixed with `/api/v1`.
+所有端点均以 `/api/v1` 为前缀。
 
-### Posts
+### 文章
 
-| Method | Path | Description |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/api/v1/posts` | List posts (paginated) |
-| `POST` | `/api/v1/posts` | Create a post (auth required) |
-| `GET` | `/api/v1/posts/:id` | Get a single post |
-| `PUT` | `/api/v1/posts/:id` | Update a post (auth required) |
-| `DELETE` | `/api/v1/posts/:id` | Delete a post (auth required) |
-| `GET` | `/api/v1/posts/:id/todos` | Get todo items for a post |
+| `GET` | `/api/v1/posts` | 获取文章列表（分页） |
+| `POST` | `/api/v1/posts` | 创建文章（需要认证） |
+| `GET` | `/api/v1/posts/:id` | 获取单篇文章 |
+| `PUT` | `/api/v1/posts/:id` | 更新文章（需要认证） |
+| `DELETE` | `/api/v1/posts/:id` | 删除文章（需要认证） |
+| `GET` | `/api/v1/posts/:id/todos` | 获取文章的待办事项 |
 
-### Subscribers
+### 订阅者
 
-| Method | Path | Description |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/api/v1/subscribers` | List subscribers |
-| `POST` | `/api/v1/subscribers` | Add a subscriber |
+| `GET` | `/api/v1/subscribers` | 获取订阅者列表 |
+| `POST` | `/api/v1/subscribers` | 添加订阅者 |
 
-### Export
+### 导出
 
-| Method | Path | Description |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/api/v1/export/posts` | Export posts as JSON or CSV (auth required) |
+| `GET` | `/api/v1/export/posts` | 导出文章为 JSON 或 CSV（需要认证） |
 
-### Other
+### 其他
 
-| Method | Path | Description |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/api/health` | Health check |
+| `GET` | `/api/health` | 健康检查 |
 | `GET` | `/swagger-ui/` | Swagger UI |
-| `GET` | `/api-docs/openapi.json` | OpenAPI spec |
+| `GET` | `/api-docs/openapi.json` | OpenAPI 规范 |
 
-Full interactive documentation is available at `/swagger-ui/` when the server is running.
+服务器运行时，完整的交互式文档可在 `/swagger-ui/` 访问。
 
-## Authentication
+## 认证
 
-Write operations (POST, PUT, DELETE) require a Bearer token in the `Authorization` header:
+写操作（POST、PUT、DELETE）需要在 `Authorization` 请求头中携带 Bearer 令牌：
 
 ```bash
 curl -H "Authorization: Bearer YOUR_ADMIN_KEY" \
@@ -127,61 +127,61 @@ curl -H "Authorization: Bearer YOUR_ADMIN_KEY" \
      -d '{"title": "Hello", "content": "World"}'
 ```
 
-Read operations (GET) are public and do not require authentication.
+读操作（GET）是公开的，不需要认证。
 
-## Data Export
+## 数据导出
 
-Export all blog posts in JSON or CSV format:
+以 JSON 或 CSV 格式导出所有博客文章：
 
 ```bash
-# JSON export
+# JSON 导出
 curl -H "Authorization: Bearer YOUR_ADMIN_KEY" \
      http://localhost:8080/api/v1/export/posts \
      -o posts.json
 
-# CSV export
+# CSV 导出
 curl -H "Authorization: Bearer YOUR_ADMIN_KEY" \
      "http://localhost:8080/api/v1/export/posts?format=csv" \
      -o posts.csv
 
-# Filter by status
+# 按状态筛选
 curl -H "Authorization: Bearer YOUR_ADMIN_KEY" \
      "http://localhost:8080/api/v1/export/posts?status=published" \
      -o published.json
 ```
 
-## Makefile Commands
+## Makefile 命令
 
-| Command | Description |
+| 命令 | 说明 |
 |---|---|
-| `make up` | Start all services |
-| `make down` | Stop all services |
-| `make logs` | Follow all logs |
-| `make logs-backend` | Follow backend logs |
-| `make build` | Build all services |
-| `make test` | Run backend tests |
-| `make migrate` | Run database migrations |
-| `make db-shell` | Open psql shell |
-| `make clean` | Remove volumes and containers |
+| `make up` | 启动所有服务 |
+| `make down` | 停止所有服务 |
+| `make logs` | 查看所有日志 |
+| `make logs-backend` | 查看后端日志 |
+| `make build` | 构建所有服务 |
+| `make test` | 运行后端测试 |
+| `make migrate` | 运行数据库迁移 |
+| `make db-shell` | 打开 psql 命令行 |
+| `make clean` | 删除卷和容器 |
 
-## Project Structure
+## 项目结构
 
 ```
 zyblog/
-  backend/           # Axum (Rust) backend
+  backend/           # Axum (Rust) 后端
     src/
-      handlers/      # Request handlers
-      middleware/     # Auth middleware
-      models/        # SeaORM entity models
-      routes/        # Route definitions
-      migrations/    # Database migrations
-      tasks/         # Background tasks (email)
-    static/          # Static files (uploaded images)
-  frontend/          # Vue 3 frontend
+      handlers/      # 请求处理器
+      middleware/     # 认证中间件
+      models/        # SeaORM 实体模型
+      routes/        # 路由定义
+      migrations/    # 数据库迁移
+      tasks/         # 后台任务（邮件）
+    static/          # 静态文件（上传的图片）
+  frontend/          # Vue 3 前端
   docker-compose.yml
   Makefile
 ```
 
-## License
+## 许可证
 
 MIT

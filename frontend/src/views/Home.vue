@@ -14,24 +14,24 @@ const {
   formatDate,
 } = usePosts()
 
-// Compute total pages
+// 计算总页数
 const totalPages = computed(() =>
   Math.ceil(pagination.total / pagination.perPage)
 )
 
-// Navigate to post detail
+// 导航到文章详情
 function goToPost(id: number) {
   router.push(`/posts/${id}`)
 }
 
-// Handle page change
+// 处理页码变化
 function handlePageChange(page: number) {
   fetchPosts(page, pagination.perPage)
-  // Scroll to top on page change
+  // 页码变化时滚动到顶部
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// Format relative time (e.g., "3 天前")
+// 格式化相对时间（如 "3 天前"）
 function relativeTime(isoDate: string): string {
   const now = new Date()
   const date = new Date(isoDate)
@@ -45,7 +45,7 @@ function relativeTime(isoDate: string): string {
   return formatDate(isoDate)
 }
 
-// Truncate excerpt to a reasonable length
+// 截断摘要到合理长度
 function truncateExcerpt(text: string | null, maxLen = 120): string {
   if (!text) return ''
   if (text.length <= maxLen) return text
@@ -131,7 +131,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* --- Home Page Layout --- */
+/* --- 首页布局 --- */
 .home {
   animation: fadeIn var(--transition-slow) ease-out;
 }
@@ -147,7 +147,7 @@ onMounted(() => {
   }
 }
 
-/* --- Header --- */
+/* --- 头部 --- */
 .home__header {
   margin-bottom: var(--space-10);
   padding-bottom: var(--space-6);
@@ -169,7 +169,7 @@ onMounted(() => {
   font-weight: 300;
 }
 
-/* --- Loading / Error / Empty States --- */
+/* --- 加载/错误/空状态 --- */
 .home__loading,
 .home__error,
 .home__empty {
@@ -186,14 +186,14 @@ onMounted(() => {
   font-size: var(--text-base);
 }
 
-/* --- Post List --- */
+/* --- 文章列表 --- */
 .post-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-/* --- Post Card --- */
+/* --- 文章卡片 --- */
 .post-card {
   display: flex;
   gap: var(--space-6);
@@ -221,7 +221,7 @@ onMounted(() => {
   transform: translateX(0);
 }
 
-/* --- Cover Image --- */
+/* --- 封面图片 --- */
 .post-card__cover {
   flex-shrink: 0;
   width: 120px;
@@ -242,7 +242,7 @@ onMounted(() => {
   transform: scale(1.05);
 }
 
-/* --- Card Body --- */
+/* --- 卡片内容 --- */
 .post-card__body {
   flex: 1;
   min-width: 0;
@@ -311,7 +311,7 @@ onMounted(() => {
   display: inline-block;
 }
 
-/* --- Pagination --- */
+/* --- 分页 --- */
 .pagination-wrapper {
   display: flex;
   justify-content: center;
@@ -320,7 +320,7 @@ onMounted(() => {
   border-top: 1px solid var(--color-border-light);
 }
 
-/* --- Responsive --- */
+/* --- 响应式 --- */
 @media (max-width: 767px) {
   .home__title {
     font-size: var(--text-3xl);

@@ -21,7 +21,7 @@ const router = useRouter()
 const message = useMessage()
 const { isAuthenticated, setAdminKey } = useAuth()
 
-// State
+// 状态
 const fileContent = ref<string | null>(null)
 const parsedData = ref<ParsedFrontmatter | null>(null)
 const isLoading = ref(false)
@@ -30,7 +30,7 @@ const error = ref<string | null>(null)
 const showAuthDialog = ref(false)
 const adminKeyInput = ref('')
 
-// Types
+// 类型
 interface ParsedFrontmatter {
   title: string
   content: string
@@ -42,15 +42,15 @@ interface ParsedFrontmatter {
 }
 
 /**
- * Simple frontmatter parser
- * Parses YAML-like frontmatter between --- delimiters
+ * 简单的 frontmatter 解析器
+ * 解析 --- 分隔符之间的类 YAML frontmatter
  */
 function parseFrontmatter(markdown: string): ParsedFrontmatter {
   const lines = markdown.split('\n')
   let frontmatterEnd = -1
   let frontmatterStart = -1
 
-  // Find frontmatter boundaries
+  // 查找 frontmatter 边界
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     if (line === '---') {
@@ -63,7 +63,7 @@ function parseFrontmatter(markdown: string): ParsedFrontmatter {
     }
   }
 
-  // Parse frontmatter if found
+  // 解析 frontmatter（如果找到）
   const metadata: Record<string, string> = {}
   if (frontmatterStart !== -1 && frontmatterEnd !== -1) {
     for (let i = frontmatterStart + 1; i < frontmatterEnd; i++) {
@@ -72,20 +72,20 @@ function parseFrontmatter(markdown: string): ParsedFrontmatter {
         const colonIndex = line.indexOf(':')
         const key = line.substring(0, colonIndex).trim()
         const value = line.substring(colonIndex + 1).trim()
-        // Remove quotes if present
+        // 如果存在则移除引号
         metadata[key] = value.replace(/^["']|["']$/g, '')
       }
     }
   }
 
-  // Extract content (everything after frontmatter)
+  // 提取内容（frontmatter 之后的所有内容）
   const contentStart = frontmatterEnd !== -1 ? frontmatterEnd + 1 : 0
   const content = lines.slice(contentStart).join('\n').trim()
 
-  // Parse tags (comma-separated or array-like)
+  // 解析标签（逗号分隔或数组格式）
   let tags: string[] = []
   if (metadata.tags) {
-    // Handle [tag1, tag2] format or comma-separated
+    // 处理 [tag1, tag2] 格式或逗号分隔
     const tagsStr = metadata.tags.replace(/[\[\]]/g, '')
     tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean)
   }
@@ -102,13 +102,13 @@ function parseFrontmatter(markdown: string): ParsedFrontmatter {
 }
 
 /**
- * Handle file upload - read and parse the markdown file
+ * 处理文件上传 - 读取并解析 markdown 文件
  */
 function handleFileUpload(options: { file: UploadFileInfo }) {
   const file = options.file.file
   if (!file) return
 
-  // Validate file type
+  // 验证文件类型
   if (!file.name.endsWith('.md')) {
     error.value = 'Unsupported file format. Please upload a .md file.'
     message.error('Unsupported file format')
@@ -140,12 +140,12 @@ function handleFileUpload(options: { file: UploadFileInfo }) {
 }
 
 /**
- * Confirm import - send to API
+ * 确认导入 - 发送到 API
  */
 async function confirmImport() {
   if (!parsedData.value) return
 
-  // Check auth before importing
+  // 导入前检查认证
   if (!isAuthenticated.value) {
     showAuthDialog.value = true
     return
@@ -181,7 +181,7 @@ async function confirmImport() {
 }
 
 /**
- * Handle auth submit
+ * 处理认证提交
  */
 function handleAuthSubmit() {
   if (!adminKeyInput.value.trim()) {
@@ -195,7 +195,7 @@ function handleAuthSubmit() {
 }
 
 /**
- * Reset the import state
+ * 重置导入状态
  */
 function resetImport() {
   fileContent.value = null
@@ -203,7 +203,7 @@ function resetImport() {
   error.value = null
 }
 
-// Computed
+// 计算属性
 const hasPreview = computed(() => parsedData.value !== null)
 const formattedDate = computed(() => {
   if (!parsedData.value?.date) return null
@@ -377,14 +377,14 @@ const formattedDate = computed(() => {
 </template>
 
 <style scoped>
-/* Import Page Layout */
+/* 导入页面布局 */
 .import-page {
   max-width: 720px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-4);
 }
 
-/* Header */
+/* 头部 */
 .import-header {
   margin-bottom: var(--space-8);
   text-align: center;
@@ -404,13 +404,13 @@ const formattedDate = computed(() => {
   font-weight: 400;
 }
 
-/* Alert */
+/* 警告 */
 .import-alert {
   margin-bottom: var(--space-6);
   border-radius: var(--radius-md);
 }
 
-/* Upload Card */
+/* 上传卡片 */
 .upload-card {
   background: var(--color-bg-elevated);
   border-radius: var(--radius-lg);
@@ -476,7 +476,7 @@ const formattedDate = computed(() => {
   color: var(--color-text-secondary);
 }
 
-/* Preview Section */
+/* 预览区域 */
 .preview-section {
   display: flex;
   flex-direction: column;
@@ -513,7 +513,7 @@ const formattedDate = computed(() => {
   color: var(--color-accent-hover);
 }
 
-/* Preview Content */
+/* 预览内容 */
 .preview-title {
   font-family: var(--font-display);
   font-size: var(--text-2xl);
@@ -546,7 +546,7 @@ const formattedDate = computed(() => {
   border-left: 3px solid var(--color-border);
 }
 
-/* Content Preview */
+/* 内容预览 */
 .preview-content {
   margin-top: var(--space-4);
 }
@@ -574,7 +574,7 @@ const formattedDate = computed(() => {
   border: 1px solid var(--color-border-light);
 }
 
-/* Action Buttons */
+/* 操作按钮 */
 .import-actions {
   display: flex;
   justify-content: flex-end;
@@ -582,7 +582,7 @@ const formattedDate = computed(() => {
   padding-top: var(--space-4);
 }
 
-/* Responsive */
+/* 响应式 */
 @media (max-width: 768px) {
   .import-page {
     padding: var(--space-4) var(--space-3);
@@ -613,7 +613,7 @@ const formattedDate = computed(() => {
   }
 }
 
-/* Upload component overrides */
+/* 上传组件覆盖 */
 :deep(.n-upload) {
   width: 100%;
 }
@@ -626,7 +626,7 @@ const formattedDate = computed(() => {
   display: none;
 }
 
-/* --- Auth Dialog --- */
+/* --- 认证弹窗 --- */
 .auth-overlay {
   position: fixed;
   inset: 0;

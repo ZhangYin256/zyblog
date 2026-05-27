@@ -5,11 +5,11 @@ import { useMessage } from 'naive-ui'
 import api from '../lib/api'
 
 interface Props {
-  /** List of #todo tag strings from the post */
+  /** 文章中的 #todo 标签字符串列表 */
   tags?: string[]
-  /** Optional post ID for tracking which post triggered the subscription */
+  /** 可选的文章 ID，用于跟踪触发订阅的文章 */
   postId?: number
-  /** Optional: show current subscriber count */
+  /** 可选：显示当前订阅者数量 */
   subscriberCount?: number
 }
 
@@ -21,22 +21,22 @@ const props = withDefaults(defineProps<Props>(), {
 
 const message = useMessage()
 
-// Form state
+// 表单状态
 const email = ref('')
 const isSubmitting = ref(false)
 const isSubscribed = ref(false)
 
-// Email validation
+// 邮箱验证
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const isValidEmail = computed(() => emailRegex.test(email.value))
 const showEmailError = ref(false)
 
-// Format tags with # prefix if not already present
+// 如果标签没有 # 前缀则格式化添加
 const formattedTags = computed(() =>
   props.tags.map((tag) => (tag.startsWith('#') ? tag : `#${tag}`))
 )
 
-// Subscriber count display
+// 订阅者数量显示
 const displayCount = computed(() => {
   if (props.subscriberCount === undefined) return null
   if (props.subscriberCount >= 1000) {
@@ -46,10 +46,10 @@ const displayCount = computed(() => {
 })
 
 async function handleSubscribe() {
-  // Reset error state
+  // 重置错误状态
   showEmailError.value = false
 
-  // Validate email
+  // 验证邮箱
   if (!email.value.trim()) {
     showEmailError.value = true
     message.warning('请输入邮箱地址')
@@ -191,7 +191,7 @@ function handleEmailInput() {
   box-shadow: var(--shadow-md);
 }
 
-/* Header */
+/* 头部 */
 .todo-subscribe__header {
   display: flex;
   align-items: center;
@@ -214,7 +214,7 @@ function handleEmailInput() {
   letter-spacing: -0.01em;
 }
 
-/* Tags section */
+/* 标签区域 */
 .todo-subscribe__tags {
   margin-bottom: var(--space-4);
 }
@@ -250,13 +250,13 @@ function handleEmailInput() {
   transform: translateY(-1px);
 }
 
-/* Divider */
+/* 分割线 */
 .todo-subscribe__divider {
   margin: var(--space-4) 0;
   border-color: var(--color-border-light);
 }
 
-/* Form */
+/* 表单 */
 .todo-subscribe__form {
   display: flex;
   flex-direction: column;
@@ -316,7 +316,7 @@ function handleEmailInput() {
   animation: fadeIn 0.2s ease;
 }
 
-/* Success state */
+/* 成功状态 */
 .todo-subscribe__success {
   display: flex;
   flex-direction: column;
@@ -355,7 +355,7 @@ function handleEmailInput() {
   margin: 0;
 }
 
-/* Subscriber count */
+/* 订阅者数量 */
 .todo-subscribe__count {
   display: flex;
   align-items: baseline;
@@ -379,7 +379,7 @@ function handleEmailInput() {
   color: var(--color-text-tertiary);
 }
 
-/* Animations */
+/* 动画 */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -402,7 +402,7 @@ function handleEmailInput() {
   }
 }
 
-/* Responsive adjustments */
+/* 响应式调整 */
 @media (max-width: 480px) {
   .todo-subscribe {
     padding: var(--space-4);

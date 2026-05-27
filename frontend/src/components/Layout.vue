@@ -15,12 +15,12 @@ const route = useRoute()
 const appStore = useAppStore()
 const { isDesktop } = useResponsive()
 
-// Render icon helper
+// 渲染图标辅助函数
 function renderIcon(icon: string) {
   return () => h('span', { style: 'font-size: 18px; line-height: 1;' }, icon)
 }
 
-// Menu options with icons
+// 带图标的菜单选项
 const menuOptions = computed(() => [
   {
     label: '首页',
@@ -44,7 +44,7 @@ const menuOptions = computed(() => [
   },
 ])
 
-// Mobile nav icon mapping
+// 移动端导航图标映射
 const navIconMap: Record<string, string> = {
   '/': '⌂',
   '/publish': '✎',
@@ -56,13 +56,13 @@ function getNavIcon(key: string): string {
   return navIconMap[key] || '•'
 }
 
-// Handle menu click
+// 处理菜单点击
 function handleMenuUpdate(key: string) {
   appStore.setActiveRoute(key)
   router.push(key)
 }
 
-// Sync route with active menu
+// 同步路由与活动菜单
 watch(
   () => route.path,
   (path) => {
@@ -76,7 +76,7 @@ watch(
   { immediate: true }
 )
 
-// Sidebar dimensions
+// 侧边栏尺寸
 const siderWidth = 240
 const collapsedWidth = 64
 </script>
@@ -165,7 +165,7 @@ const collapsedWidth = 64
 </template>
 
 <style scoped>
-/* --- Sidebar Styles --- */
+/* --- 侧边栏样式 --- */
 .sidebar-brand {
   display: flex;
   align-items: center;
@@ -199,7 +199,7 @@ const collapsedWidth = 64
   letter-spacing: -0.02em;
 }
 
-/* Deep style overrides for Naive UI sidebar menu */
+/* Naive UI 侧边栏菜单深度样式覆盖 */
 :deep(.n-menu) {
   --n-item-text-color: rgba(255, 255, 255, 0.7);
   --n-item-text-color-hover: #ffffff;
@@ -236,7 +236,7 @@ const collapsedWidth = 64
   border-radius: 0 2px 2px 0;
 }
 
-/* --- Content Area --- */
+/* --- 内容区域 --- */
 .content-wrapper {
   max-width: var(--content-max-width);
   margin: 0 auto;
@@ -247,7 +247,7 @@ const collapsedWidth = 64
   padding: var(--space-4);
 }
 
-/* --- Mobile Header --- */
+/* --- 移动端头部 --- */
 .mobile-header {
   display: flex;
   align-items: center;
@@ -269,7 +269,7 @@ const collapsedWidth = 64
   font-size: var(--text-lg);
 }
 
-/* --- Bottom Navigation --- */
+/* --- 底部导航 --- */
 .bottom-nav {
   position: fixed;
   bottom: 0;

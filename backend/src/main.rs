@@ -22,7 +22,7 @@ use tower_http::services::ServeDir;
 use tracing_subscriber::EnvFilter;
 use utoipa::OpenApi;
 
-/// Health check endpoint.
+/// 健康检查端点
 async fn health_check() -> Json<Value> {
     Json(json!({ "status": "ok" }))
 }
@@ -102,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
         config: config.clone(),
     });
 
-    // Public routes (no auth required)
+    // 公开路由（无需认证）
     let public_routes = Router::new()
         .route("/api/health", get(health_check))
         .merge(image_routes())
@@ -111,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
             subscriber_routes().with_state(state.clone()),
         );
 
-    // Protected routes (auth required for write operations)
+    // 受保护路由（写操作需要认证）
     let protected_routes = Router::new()
         .nest("/api/v1/posts", posts_routes().with_state(state.clone()))
         .nest("/api/v1/export", export_routes().with_state(state.clone()))

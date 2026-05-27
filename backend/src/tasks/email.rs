@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::models::subscriber::{self, Entity as Subscriber};
 use crate::state::AppState;
 
-/// Send an email notification to all confirmed subscribers about a post update.
+/// 向所有已确认的订阅者发送文章更新邮件通知
 pub async fn notify_subscribers_on_update(
     state: &Arc<AppState>,
     post_id: i32,
@@ -19,7 +19,7 @@ pub async fn notify_subscribers_on_update(
         anyhow::anyhow!("Database not available")
     })?;
 
-    // Get all confirmed subscribers
+    // 获取所有已确认的订阅者
     let subscribers = Subscriber::find()
         .filter(subscriber::Column::Confirmed.eq(true))
         .all(db)
@@ -32,7 +32,7 @@ pub async fn notify_subscribers_on_update(
 
     let config = &state.config;
 
-    // Build SMTP transport
+    // 构建 SMTP 传输
     let credentials = Credentials::new(
         config.smtp_username.clone(),
         config.smtp_password.clone(),

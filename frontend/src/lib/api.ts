@@ -1,11 +1,10 @@
 import axios from 'axios'
 
 /**
- * Shared axios instance for all API calls.
+ * 所有 API 调用共享的 axios 实例
  *
- * - Automatically attaches the admin Bearer token for write operations
- *   (POST, PUT, DELETE, PATCH).
- * - The token is read from localStorage key 'zyblog_admin_key'.
+ * - 自动为写操作（POST、PUT、DELETE、PATCH）附加管理员 Bearer 令牌
+ * - 令牌从 localStorage 的 'zyblog_admin_key' 键读取
  */
 const api = axios.create({
   baseURL: '',
@@ -14,7 +13,7 @@ const api = axios.create({
   },
 })
 
-// Request interceptor: attach auth token for write methods
+// 请求拦截器：为写方法附加认证令牌
 api.interceptors.request.use((config) => {
   const method = config.method?.toUpperCase()
   if (method === 'POST' || method === 'PUT' || method === 'DELETE' || method === 'PATCH') {

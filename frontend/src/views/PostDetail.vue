@@ -19,17 +19,17 @@ const {
   formatDate,
 } = usePosts()
 
-// Subscriber form state
+// 订阅表单状态
 const subscriberEmail = ref('')
 const subscriberName = ref('')
 const subscribing = ref(false)
 const showSubscribeForm = ref(false)
 const activeTodoTitle = ref('')
 
-// Post ID from route
+// 路由中的文章 ID
 const postId = computed(() => route.params.id as string)
 
-// Format full date
+// 格式化完整日期
 function formatFullDate(isoDate: string): string {
   const date = new Date(isoDate)
   return date.toLocaleDateString('zh-CN', {
@@ -41,23 +41,23 @@ function formatFullDate(isoDate: string): string {
 }
 
 /**
- * Process content to highlight #todo tags.
- * Replaces #todo patterns with styled spans and optional subscribe button.
+ * 处理内容以高亮 #todo 标签
+ * 将 #todo 模式替换为带样式的 span 和可选的订阅按钮
  */
 function processContent(content: string): string {
   if (!content) return ''
 
-  // Escape HTML to prevent XSS
+  // 转义 HTML 以防止 XSS
   let processed = content
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
-  // Convert markdown-like line breaks
+  // 转换 markdown 风格的换行
   processed = processed.replace(/\n\n/g, '</p><p>')
   processed = processed.replace(/\n/g, '<br>')
 
-  // Highlight #todo tags
+  // 高亮 #todo 标签
   processed = processed.replace(
     /#todo\b([^#]*?)(?=#todo|$)/g,
     (match, taskText) => {
@@ -73,7 +73,7 @@ function processContent(content: string): string {
     }
   )
 
-  // Wrap in paragraphs
+  // 包裹在段落中
   if (!processed.startsWith('<p>')) {
     processed = '<p>' + processed + '</p>'
   }
@@ -81,18 +81,18 @@ function processContent(content: string): string {
   return processed
 }
 
-// Handle todo subscribe click (exposed to window for inline onclick)
+// 处理待办订阅点击（暴露给 window 用于内联 onclick）
 async function handleTodoSubscribe(taskTitle: string) {
   activeTodoTitle.value = taskTitle
   showSubscribeForm.value = true
 }
 
-// Expose to window for inline onclick handlers
+// 暴露给 window 用于内联 onclick 处理器
 if (typeof window !== 'undefined') {
   (window as any).__handleTodoSubscribe = handleTodoSubscribe
 }
 
-// Submit subscriber
+// 提交订阅
 async function handleSubscribe() {
   if (!subscriberEmail.value.trim()) {
     message.warning('请输入邮箱地址')
@@ -121,14 +121,14 @@ async function handleSubscribe() {
   }
 }
 
-// Cancel subscribe
+// 取消订阅
 function cancelSubscribe() {
   showSubscribeForm.value = false
   subscriberEmail.value = ''
   subscriberName.value = ''
 }
 
-// Navigate back
+// 返回
 function goBack() {
   router.push('/')
 }
@@ -137,7 +137,7 @@ onMounted(async () => {
   await fetchPost(postId.value)
   await fetchPostTodos(postId.value)
 
-  // Re-attach event listeners after content renders
+  // 内容渲染后重新附加事件监听器
   await nextTick()
   const subscribeButtons = document.querySelectorAll('.todo-highlight__subscribe')
   subscribeButtons.forEach((btn) => {
@@ -276,7 +276,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* --- Post Detail Layout --- */
+/* --- 文章详情布局 --- */
 .post-detail {
   animation: fadeIn var(--transition-slow) ease-out;
   max-width: 720px;
@@ -294,7 +294,7 @@ onMounted(async () => {
   }
 }
 
-/* --- Back Button --- */
+/* --- 返回按钮 --- */
 .back-button {
   display: inline-flex;
   align-items: center;
@@ -323,7 +323,7 @@ onMounted(async () => {
   transform: translateX(-4px);
 }
 
-/* --- Loading / Error States --- */
+/* --- 加载/错误状态 --- */
 .post-detail__loading,
 .post-detail__error {
   display: flex;
@@ -343,7 +343,7 @@ onMounted(async () => {
   color: var(--color-error);
 }
 
-/* --- Post Header --- */
+/* --- 文章头部 --- */
 .post-header {
   margin-bottom: var(--space-8);
   padding-bottom: var(--space-6);
@@ -391,7 +391,7 @@ onMounted(async () => {
   line-height: 1.6;
 }
 
-/* --- Cover Image --- */
+/* --- 封面图片 --- */
 .post-cover {
   margin-bottom: var(--space-8);
   border-radius: var(--radius-lg);
@@ -407,7 +407,7 @@ onMounted(async () => {
   object-fit: cover;
 }
 
-/* --- Post Body (rendered HTML) --- */
+/* --- 文章正文（渲染的 HTML） --- */
 .post-body {
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -505,7 +505,7 @@ onMounted(async () => {
   font-style: italic;
 }
 
-/* --- #todo Highlight Styles --- */
+/* --- #todo 高亮样式 --- */
 .post-body :deep(.todo-highlight) {
   display: inline-flex;
   align-items: center;
@@ -572,7 +572,7 @@ onMounted(async () => {
   transform: scale(0.98);
 }
 
-/* --- Todo Section --- */
+/* --- 待办事项区域 --- */
 .todo-section {
   margin-top: var(--space-10);
   padding-top: var(--space-6);
@@ -652,7 +652,7 @@ onMounted(async () => {
   color: white;
 }
 
-/* --- Subscribe Form Overlay --- */
+/* --- 订阅表单弹窗 --- */
 .subscribe-overlay {
   position: fixed;
   inset: 0;
@@ -731,7 +731,7 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
-/* --- Responsive --- */
+/* --- 响应式 --- */
 @media (max-width: 767px) {
   .post-detail {
     max-width: 100%;

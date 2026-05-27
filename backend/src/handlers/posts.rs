@@ -15,7 +15,7 @@ use crate::models::{post, todo_item};
 use crate::state::AppState;
 use crate::tasks::email::notify_subscribers_on_update;
 
-/// Request body for creating a post.
+/// 创建文章的请求体
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreatePostRequest {
     pub title: String,
@@ -25,7 +25,7 @@ pub struct CreatePostRequest {
     pub status: Option<String>, // "draft" or "published"
 }
 
-/// Request body for updating a post.
+/// 更新文章的请求体
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdatePostRequest {
     pub title: Option<String>,
@@ -35,7 +35,7 @@ pub struct UpdatePostRequest {
     pub status: Option<String>,
 }
 
-/// Query parameters for listing posts.
+/// 文章列表查询参数
 #[derive(Debug, Deserialize)]
 pub struct ListPostsQuery {
     pub page: Option<u64>,
@@ -43,7 +43,7 @@ pub struct ListPostsQuery {
     pub status: Option<String>,
 }
 
-/// Response representation of a post.
+/// 文章响应表示
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PostResponse {
     pub id: i32,
@@ -57,7 +57,7 @@ pub struct PostResponse {
     pub updated_at: String,
 }
 
-/// Paginated list response.
+/// 分页列表响应
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PostListResponse {
     pub items: Vec<PostResponse>,
@@ -66,7 +66,7 @@ pub struct PostListResponse {
     pub per_page: u64,
 }
 
-/// Response for a created post (includes todos if any).
+/// 创建文章的响应（包含待办事项）
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CreatePostResponse {
     #[serde(flatten)]
@@ -74,7 +74,7 @@ pub struct CreatePostResponse {
     pub todos_created: Vec<TodoItemResponse>,
 }
 
-/// Response for a todo item.
+/// 待办事项响应
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct TodoItemResponse {
     pub id: i32,
@@ -85,28 +85,28 @@ pub struct TodoItemResponse {
     pub created_at: String,
 }
 
-/// Extract #todo tags from content.
-/// Returns a list of todo titles extracted from patterns like #todo Some task
+/// 从内容中提取 #todo 标签
+/// 返回从 #todo 模式中提取的待办事项标题列表
 fn extract_todos(content: &str) -> Vec<String> {
     let mut todos = Vec::new();
     for line in content.lines() {
         let mut remaining = line;
         while let Some(pos) = remaining.find("#todo") {
             let after_tag = &remaining[pos + 5..];
-            // Extract text until next #todo, end of line, or period
+            // 提取文本直到下一个 #todo、行尾或句号
             let title = if after_tag.starts_with(' ') {
                 let text = after_tag.trim_start();
-                // Take until next #todo or end of line
+                // 取到下一个 #todo 或行尾
                 let end = text
                     .find("#todo")
                     .unwrap_or(text.len());
                 text[..end].trim().to_string()
             } else if after_tag.is_empty() || after_tag.starts_with(|c: char| !c.is_alphanumeric())
             {
-                // #todo at end or followed by non-alphanumeric
+                // 行尾的 #todo 或后跟非字母数字字符
                 String::from("Untitled todo")
             } else {
-                // #todofix - not a valid #todo tag, skip
+                // #todofix - 不是有效的 #todo 标签，跳过
                 remaining = &remaining[pos + 5..];
                 continue;
             };
@@ -120,12 +120,12 @@ fn extract_todos(content: &str) -> Vec<String> {
     todos
 }
 
-/// Generate a slug from a title.
+/// 从标题生成 slug
 fn generate_slug(title: &str) -> String {
     slug::slugify(title)
 }
 
-/// Convert a post model to a response.
+/// 将文章模型转换为响应
 fn post_to_response(post: &post::Model) -> PostResponse {
     PostResponse {
         id: post.id,
@@ -155,7 +155,7 @@ fn todo_to_response(todo: &todo_item::Model) -> TodoItemResponse {
     }
 }
 
-/// POST /api/v1/posts - Create a new post.
+/// POST /api/v1/posts - 创建新文章
 #[utoipa::path(
     post,
     path = "/api/v1/posts",
@@ -174,7 +174,7 @@ pub async fn create_post(
         AppError::Internal(anyhow::anyhow!("Database not available"))
     })?;
 
-    // Validate title is not empty
+    // 验证标题不为空
     if body.title.trim().is_empty() {
         return Err(AppError::BadRequest("Title is required".to_string()));
     }
@@ -201,7 +201,7 @@ pub async fn create_post(
 
     let post = new_post.insert(db).await?;
 
-    // Parse #todo tags and create todo items with post_id
+    // 解析 #todo 标签并创建待办事项
     let todo_titles = extract_todos(&body.content);
     let mut created_todos = Vec::new();
 
@@ -228,7 +228,7 @@ pub async fn create_post(
     Ok((axum::http::StatusCode::CREATED, Json(response)))
 }
 
-/// GET /api/v1/posts - List posts with pagination.
+/// GET /api/v1/posts - 分页获取文章列表
 #[utoipa::path(
     get,
     path = "/api/v1/posts",
@@ -255,16 +255,16 @@ pub async fn list_posts(
 
     let mut select = post::Entity::find();
 
-    // Filter by status if provided
+    // 按状态筛选（如果提供）
     if let Some(ref status) = query.status {
         let published = status == "published";
         select = select.filter(post::Column::Published.eq(published));
     }
 
-    // Count total
+    // 统计总数
     let total = select.clone().count(db).await?;
 
-    // Paginate and order by created_at desc
+    // 分页并按创建时间降序排列
     let posts = select
         .order_by_desc(post::Column::CreatedAt)
         .paginate(db, per_page)
@@ -281,7 +281,7 @@ pub async fn list_posts(
     }))
 }
 
-/// GET /api/v1/posts/:id - Get a single post.
+/// GET /api/v1/posts/:id - 获取单篇文章
 #[utoipa::path(
     get,
     path = "/api/v1/posts/{id}",
@@ -310,9 +310,9 @@ pub async fn get_post(
     Ok(Json(post_to_response(&post)))
 }
 
-/// PUT /api/v1/posts/:id - Update a post.
+/// PUT /api/v1/posts/:id - 更新文章
 ///
-/// If the post is published and has #todo items, subscribers are notified.
+/// 如果文章已发布且包含 #todo 项目，将通知订阅者
 #[utoipa::path(
     put,
     path = "/api/v1/posts/{id}",
@@ -372,8 +372,8 @@ pub async fn update_post(
         active_model.published = Set(p);
         p
     } else {
-        // Read from active model - we need to get the value
-        // Since we're setting it conditionally, let's use the was_published
+        // 从活动模型读取 - 需要获取值
+        // 由于是条件性设置，使用 was_published
         was_published
     };
 
@@ -381,7 +381,7 @@ pub async fn update_post(
 
     let updated_post = active_model.update(db).await?;
 
-    // Re-parse #todo tags: delete old ones, create new ones
+    // 重新解析 #todo 标签：删除旧的，创建新的
     if let Some(ref content) = new_content {
         todo_item::Entity::delete_many()
             .filter(todo_item::Column::PostId.eq(id))
@@ -403,7 +403,7 @@ pub async fn update_post(
         }
     }
 
-    // Notify subscribers if post is now published and wasn't before
+    // 如果文章刚发布且之前未发布，通知订阅者
     if now_published && !was_published {
         let state_clone = state.clone();
         let post_title = updated_post.title.clone();
@@ -418,7 +418,7 @@ pub async fn update_post(
     Ok(Json(post_to_response(&updated_post)))
 }
 
-/// DELETE /api/v1/posts/:id - Delete a post.
+/// DELETE /api/v1/posts/:id - 删除文章
 #[utoipa::path(
     delete,
     path = "/api/v1/posts/{id}",
@@ -444,7 +444,7 @@ pub async fn delete_post(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Post with id {} not found", id)))?;
 
-    // Delete associated todo items first
+    // 先删除关联的待办事项
     todo_item::Entity::delete_many()
         .filter(todo_item::Column::PostId.eq(id))
         .exec(db)
@@ -455,7 +455,7 @@ pub async fn delete_post(
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
-/// GET /api/v1/posts/:id/todos - Get todo items for a post.
+/// GET /api/v1/posts/:id/todos - 获取文章的待办事项
 #[utoipa::path(
     get,
     path = "/api/v1/posts/{id}/todos",
@@ -476,13 +476,13 @@ pub async fn get_post_todos(
         AppError::Internal(anyhow::anyhow!("Database not available"))
     })?;
 
-    // Verify post exists
+    // 验证文章存在
     let _post = post::Entity::find_by_id(id)
         .one(db)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Post with id {} not found", id)))?;
 
-    // Filter todos by post_id
+    // 按文章 ID 筛选待办事项
     let todos = todo_item::Entity::find()
         .filter(todo_item::Column::PostId.eq(id))
         .order_by_desc(todo_item::Column::CreatedAt)

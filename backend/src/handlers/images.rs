@@ -5,13 +5,13 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 
-/// Maximum file size: 5MB
+/// 最大文件大小：5MB
 const MAX_FILE_SIZE: usize = 5 * 1024 * 1024;
 
-/// Supported image MIME types
+/// 支持的图片 MIME 类型
 const SUPPORTED_TYPES: &[&str] = &["image/jpeg", "image/png", "image/gif", "image/webp"];
 
-/// Map MIME type to file extension
+/// 将 MIME 类型映射到文件扩展名
 fn mime_to_extension(mime: &str) -> Option<&str> {
     match mime {
         "image/jpeg" => Some("jpg"),
@@ -22,15 +22,15 @@ fn mime_to_extension(mime: &str) -> Option<&str> {
     }
 }
 
-/// POST /api/v1/images - Upload an image
+/// POST /api/v1/images - 上传图片
 pub async fn upload_image(mut multipart: Multipart) -> Result<Json<Value>, AppError> {
-    // Ensure upload directory exists
+    // 确保上传目录存在
     let upload_dir = "static/uploads";
     tokio::fs::create_dir_all(upload_dir)
         .await
         .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to create upload dir: {e}")))?;
 
-    // Extract the file field from multipart
+    // 从 multipart 提取文件字段
     let mut content_type: Option<String> = None;
     let mut file_data: Vec<u8> = Vec::new();
     let mut found_file = false;
@@ -45,7 +45,7 @@ pub async fn upload_image(mut multipart: Multipart) -> Result<Json<Value>, AppEr
             found_file = true;
             content_type = field.content_type().map(|s| s.to_string());
 
-            // Read in chunks to avoid multer memory limit
+            // 分块读取以避免 multer 内存限制
             while let Some(chunk) = field
                 .chunk()
                 .await
@@ -63,21 +63,21 @@ pub async fn upload_image(mut multipart: Multipart) -> Result<Json<Value>, AppEr
         }
     }
 
-    // Must have a file field
+    // 必须有文件字段
     if !found_file {
         return Err(AppError::BadRequest("Missing 'file' field".to_string()));
     }
     let mime = content_type
         .ok_or_else(|| AppError::BadRequest("Missing content type".to_string()))?;
 
-    // Validate file format
+    // 验证文件格式
     if !SUPPORTED_TYPES.contains(&mime.as_str()) {
         return Err(AppError::BadRequest(format!(
             "unsupported format: {mime}. Supported: jpeg, png, gif, webp"
         )));
     }
 
-    // Validate file size
+    // 验证文件大小
     if file_data.len() > MAX_FILE_SIZE {
         return Err(AppError::PayloadTooLarge(format!(
             "file too large: {} bytes (max {} bytes)",
@@ -86,12 +86,12 @@ pub async fn upload_image(mut multipart: Multipart) -> Result<Json<Value>, AppEr
         )));
     }
 
-    // Generate unique filename
+    // 生成唯一文件名
     let ext = mime_to_extension(&mime).unwrap(); // safe: already validated
     let filename = format!("{}.{}", Uuid::new_v4(), ext);
     let filepath = format!("{upload_dir}/{filename}");
 
-    // Save file
+    // 保存文件
     tokio::fs::write(&filepath, &file_data)
         .await
         .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to save file: {e}")))?;

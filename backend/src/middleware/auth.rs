@@ -7,20 +7,19 @@ use axum::{
 };
 use serde_json::json;
 
-/// Admin authentication middleware.
+/// 管理员认证中间件
 ///
-/// Protects write operations (POST, PUT, DELETE, PATCH) by requiring a valid
-/// Bearer token in the `Authorization` header. The token is compared against
-/// the `ADMIN_KEY` environment variable.
+/// 通过要求 `Authorization` 头中的有效 Bearer 令牌来保护写操作
+/// （POST、PUT、DELETE、PATCH）。令牌与 `ADMIN_KEY` 环境变量进行比较。
 ///
-/// Read operations (GET, HEAD, OPTIONS) pass through without authentication.
+/// 读操作（GET、HEAD、OPTIONS）无需认证即可通过
 pub async fn admin_auth_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Response {
     let method = request.method().clone();
 
-    // Read-only methods don't need auth
+    // 只读方法不需要认证
     if method == axum::http::Method::GET
         || method == axum::http::Method::HEAD
         || method == axum::http::Method::OPTIONS
@@ -28,7 +27,7 @@ pub async fn admin_auth_middleware(
         return next.run(request).await;
     }
 
-    // Read ADMIN_KEY from environment
+    // 从环境变量读取 ADMIN_KEY
     let admin_key = match std::env::var("ADMIN_KEY") {
         Ok(key) => key,
         Err(_) => {
@@ -41,7 +40,7 @@ pub async fn admin_auth_middleware(
         }
     };
 
-    // Extract Authorization header
+    // 提取 Authorization 头
     let auth_header = request
         .headers()
         .get("authorization")
@@ -68,7 +67,7 @@ pub async fn admin_auth_middleware(
         }
     };
 
-    // Validate token
+    // 验证令牌
     if token != admin_key {
         return (
             StatusCode::UNAUTHORIZED,

@@ -34,7 +34,7 @@ impl From<subscriber::Model> for SubscriberResponse {
 
 /// POST /api/v1/subscribers
 ///
-/// Create a new subscriber. Returns 409 if the email is already subscribed.
+/// 创建新订阅者。如果邮箱已订阅则返回 409
 #[utoipa::path(
     post,
     path = "/api/v1/subscribers",
@@ -53,7 +53,7 @@ pub async fn create_subscriber(
         AppError::Internal(anyhow::anyhow!("Database not available"))
     })?;
 
-    // Check for duplicate email
+    // 检查重复邮箱
     let existing = Subscriber::find()
         .filter(subscriber::Column::Email.eq(&body.email))
         .one(db)
@@ -80,7 +80,7 @@ pub async fn create_subscriber(
 
 /// GET /api/v1/subscribers
 ///
-/// List all subscribers (admin only).
+/// 列出所有订阅者（仅管理员）
 #[utoipa::path(
     get,
     path = "/api/v1/subscribers",

@@ -1,55 +1,55 @@
-# API Reference
+# API 参考文档
 
-Base URL: `http://localhost:8080`
+基础 URL: `http://localhost:8080`
 
-Interactive docs: `http://localhost:8080/swagger-ui/`
+交互式文档: `http://localhost:8080/swagger-ui/`
 
-## Authentication
+## 认证
 
-Admin endpoints require a Bearer token:
+管理员接口需要 Bearer 令牌：
 
 ```
 Authorization: Bearer YOUR_ADMIN_KEY
 ```
 
-Read-only GET endpoints are public.
+只读的 GET 接口是公开的。
 
-## Endpoints
+## 接口端点
 
-### Health Check
+### 健康检查
 
 ```
 GET /api/health
 ```
 
-Response: `{ "status": "ok" }`
+响应: `{ "status": "ok" }`
 
 ---
 
-### Posts
+### 文章
 
-#### List Posts
+#### 获取文章列表
 
 ```
 GET /api/v1/posts?page=1&per_page=10&status=published
 ```
 
-Query parameters:
-- `page` (optional): Page number, default 1
-- `per_page` (optional): Items per page, default 10, max 100
-- `status` (optional): Filter by "published" or "draft"
+查询参数：
+- `page`（可选）：页码，默认 1
+- `per_page`（可选）：每页条数，默认 10，最大 100
+- `status`（可选）：按 "published"（已发布）或 "draft"（草稿）筛选
 
-Response: `PostListResponse` with `items`, `total`, `page`, `per_page`
+响应：`PostListResponse`，包含 `items`、`total`、`page`、`per_page`
 
-#### Get Post
+#### 获取单篇文章
 
 ```
 GET /api/v1/posts/:id
 ```
 
-Response: `PostResponse`
+响应：`PostResponse`
 
-#### Create Post (auth required)
+#### 创建文章（需要认证）
 
 ```
 POST /api/v1/posts
@@ -57,17 +57,17 @@ Content-Type: application/json
 Authorization: Bearer YOUR_ADMIN_KEY
 
 {
-  "title": "My Post",
-  "content": "Post content with #todo tasks",
-  "excerpt": "Short summary",
+  "title": "我的文章",
+  "content": "文章内容，包含 #todo 任务",
+  "excerpt": "简短摘要",
   "cover_image": "https://...",
   "status": "published"
 }
 ```
 
-Response: `CreatePostResponse` (post + created todos)
+响应：`CreatePostResponse`（文章 + 创建的待办事项）
 
-#### Update Post (auth required)
+#### 更新文章（需要认证）
 
 ```
 PUT /api/v1/posts/:id
@@ -75,44 +75,44 @@ Content-Type: application/json
 Authorization: Bearer YOUR_ADMIN_KEY
 
 {
-  "title": "Updated Title",
-  "content": "Updated content",
+  "title": "更新后的标题",
+  "content": "更新后的内容",
   "status": "published"
 }
 ```
 
-All fields are optional. Only provided fields are updated.
+所有字段均为可选。仅更新提供的字段。
 
-#### Delete Post (auth required)
+#### 删除文章（需要认证）
 
 ```
 DELETE /api/v1/posts/:id
 Authorization: Bearer YOUR_ADMIN_KEY
 ```
 
-Response: 204 No Content
+响应：204 No Content
 
-#### Get Post Todos
+#### 获取文章待办事项
 
 ```
 GET /api/v1/posts/:id/todos
 ```
 
-Response: Array of `TodoItemResponse`
+响应：`TodoItemResponse` 数组
 
 ---
 
-### Subscribers
+### 订阅者
 
-#### List Subscribers
+#### 获取订阅者列表
 
 ```
 GET /api/v1/subscribers
 ```
 
-Response: Array of `SubscriberResponse`
+响应：`SubscriberResponse` 数组
 
-#### Create Subscriber
+#### 创建订阅者
 
 ```
 POST /api/v1/subscribers
@@ -120,50 +120,50 @@ Content-Type: application/json
 
 {
   "email": "user@example.com",
-  "name": "Optional Name"
+  "name": "可选名称"
 }
 ```
 
-Response: 201 with `SubscriberResponse`, or 409 if email exists
+响应：201 返回 `SubscriberResponse`，若邮箱已存在则返回 409
 
 ---
 
-### Export
+### 导出
 
-#### Export Posts (auth required)
+#### 导出文章（需要认证）
 
 ```
 GET /api/v1/export/posts?format=json&status=published
 Authorization: Bearer YOUR_ADMIN_KEY
 ```
 
-Query parameters:
-- `format` (optional): "json" (default) or "csv"
-- `status` (optional): Filter by "published" or "draft"
+查询参数：
+- `format`（可选）："json"（默认）或 "csv"
+- `status`（可选）：按 "published"（已发布）或 "draft"（草稿）筛选
 
-Response: JSON array or CSV file download
+响应：JSON 数组或 CSV 文件下载
 
 ---
 
-### Static Files
+### 静态文件
 
 ```
 GET /static/:filename
 ```
 
-Serves uploaded images from the `static/` directory.
+提供 `static/` 目录下的上传图片。
 
-## Data Types
+## 数据类型
 
-### PostResponse
+### PostResponse（文章响应）
 
 ```json
 {
   "id": 1,
-  "title": "My Post",
+  "title": "我的文章",
   "slug": "my-post",
-  "content": "Full content...",
-  "excerpt": "Short summary",
+  "content": "完整内容...",
+  "excerpt": "简短摘要",
   "cover_image": "https://...",
   "status": "published",
   "created_at": "2025-01-01T00:00:00Z",
@@ -171,30 +171,30 @@ Serves uploaded images from the `static/` directory.
 }
 ```
 
-### TodoItemResponse
+### TodoItemResponse（待办事项响应）
 
 ```json
 {
   "id": 1,
   "post_id": 1,
-  "title": "Fix the bug",
+  "title": "修复这个 bug",
   "description": null,
   "completed": false,
   "created_at": "2025-01-01T00:00:00Z"
 }
 ```
 
-### SubscriberResponse
+### SubscriberResponse（订阅者响应）
 
 ```json
 {
   "id": 1,
   "email": "user@example.com",
-  "name": "Optional Name",
+  "name": "可选名称",
   "confirmed": false
 }
 ```
 
-### ExportedPost
+### ExportedPost（导出文章）
 
-Same fields as `PostResponse`. Used for JSON/CSV export.
+与 `PostResponse` 字段相同。用于 JSON/CSV 导出。
