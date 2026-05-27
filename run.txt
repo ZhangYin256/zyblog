@@ -6,3 +6,16 @@ DATABASE_URL=postgres://zyblog:zyblog_dev@localhost:5432/zyblog ADMIN_KEY=zyblog
 # 启动前端（另开终端）
 cd ~/zyblog/frontend
 npm run dev
+
+现在三个服务分别运行在 tmux 会话中：
+# 查看会话列表
+tmux ls
+# 进入后端会话
+tmux attach -t backend
+# 进入前端会话
+tmux attach -t frontend
+# 退出会话（不会停止服务）：按 Ctrl+B 然后按 D
+停止服务
+# 在对应 tmux 会话中按 Ctrl+C 停止后端/前端
+# 停止数据库
+sudo service postgresql stop

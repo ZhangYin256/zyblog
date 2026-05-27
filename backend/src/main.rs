@@ -8,16 +8,14 @@ mod routes;
 mod state;
 mod tasks;
 
-use axum::{routing::get, Json, Router};
+use axum::{routing::{get, post, put}, Json, Router};
+use axum::extract::DefaultBodyLimit;
 use config::Config;
+use handlers::{posts, pulls, images, videos};
 use sea_orm_migration::MigratorTrait;
 use routes::backup::backup_routes;
 use routes::export::export_routes;
-use routes::images::image_routes;
-use routes::posts::{public_posts_routes, protected_posts_routes};
-use routes::pulls::{pulls_routes, pull_item_routes};
 use routes::subscribers::routes as subscriber_routes;
-use routes::videos::video_routes;
 use serde_json::{json, Value};
 use state::AppState;
 use std::sync::Arc;
@@ -161,42 +159,30 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // 公开路由（无需认证）
-    let public_routes = Router::new()
+    let app = Router::new()
         .route("/api/health", get(health_check))
-        .merge(image_routes())
+        .route("/api/v1/posts", get(posts::list_posts).post(posts::create_post))
+        .route("/api/v1/posts/:id", get(posts::get_post).put(posts::update_post).delete(posts::delete_post))
+        .route("/api/v1/posts/:id/todos", get(posts::get_post_todos))
+        .route("/api/v1/posts/:id/pulls", get(pulls::list_pulls).post(pulls::create_pull))
+        .route("/api/v1/pulls/:id", put(pulls::update_pull))
+        .route("/api/v1/pulls/:id/comments", post(pulls::add_comment))
+        .route("/api/v1/images", post(images::upload_image))
+        .route("/api/v1/videos", post(videos::upload_video))
+        .with_state(state.clone())
         .nest(
             "/api/v1/subscribers",
             subscriber_routes().with_state(state.clone()),
         )
-        .nest(
-            "/api/v1/posts",
-            public_posts_routes().with_state(state.clone()),
-        )
-        .nest(
-            "/api/v1/posts/{id}/pulls",
-            pulls_routes().with_state(state.clone()),
-        )
-        .nest(
-            "/api/v1/pulls/{id}",
-            pull_item_routes().with_state(state.clone()),
-        );
-
-    // 受保护路由（写操作需要认证）
-    let protected_routes = Router::new()
-        .nest("/api/v1/posts", protected_posts_routes().with_state(state.clone()))
         .nest("/api/v1/export", export_routes().with_state(state.clone()))
         .nest("/api/v1/backup", backup_routes().with_state(state.clone()))
-        .merge(video_routes())
-        .layer(axum::middleware::from_fn(middleware::auth::admin_auth_middleware));
-
-    let app = public_routes
-        .merge(protected_routes)
         .route("/api-docs/openapi.json", get(openapi_json))
         .route("/swagger-ui/", get(|| async {
             axum::response::Redirect::permanent("/static/swagger-ui.html")
         }))
-        .nest_service("/static", ServeDir::new("static"));
+        .nest_service("/static", ServeDir::new("static"))
+        .layer(DefaultBodyLimit::max(105_000_000))
+        .layer(axum::middleware::from_fn(middleware::auth::admin_auth_middleware));
 
     let listener = TcpListener::bind(&config.server_addr).await?;
     tracing::info!("Listening on {}", listener.local_addr()?);

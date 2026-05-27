@@ -1,24 +1,24 @@
 use axum::{
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
     Router,
 };
 use std::sync::Arc;
 
-use crate::handlers::posts;
+use crate::handlers::{posts, pulls};
 use crate::state::AppState;
 
-/// Public posts routes (GET only, no auth required).
-pub fn public_posts_routes() -> Router<Arc<AppState>> {
+/// Combined posts routes (public + protected).
+///
+/// The auth middleware (applied in main.rs) already passes GET/HEAD/OPTIONS
+/// without requiring authentication, so all routes can live in one router.
+pub fn posts_routes() -> Router<Arc<AppState>> {
     Router::new()
+        // Public (read) routes
         .route("/", get(posts::list_posts))
         .route("/{id}", get(posts::get_post))
         .route("/{id}/todos", get(posts::get_post_todos))
-}
-
-/// Protected posts routes (write operations, auth required).
-pub fn protected_posts_routes() -> Router<Arc<AppState>> {
-    Router::new()
+        .route("/{id}/pulls", get(pulls::list_pulls).post(pulls::create_pull))
+        // Protected (write) routes
         .route("/", post(posts::create_post))
-        .route("/{id}", put(posts::update_post))
-        .route("/{id}", delete(posts::delete_post))
+        .route("/{id}", put(posts::update_post).delete(posts::delete_post))
 }
