@@ -42,6 +42,11 @@ const menuOptions = computed(() => [
     key: '/import',
     icon: renderIcon('↓'),
   },
+  {
+    label: '数据备份',
+    key: '/backup',
+    icon: renderIcon('⤓'),
+  },
 ])
 
 // 移动端导航图标映射
@@ -50,6 +55,7 @@ const navIconMap: Record<string, string> = {
   '/publish': '✎',
   '/posts': '☰',
   '/import': '↓',
+  '/backup': '⤓',
 }
 
 function getNavIcon(key: string): string {

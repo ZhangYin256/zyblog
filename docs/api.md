@@ -145,13 +145,129 @@ Authorization: Bearer YOUR_ADMIN_KEY
 
 ---
 
+### PR 式互动
+
+#### 获取文章的 PR 列表
+
+```
+GET /api/v1/posts/:id/pulls
+```
+
+响应：`PullListResponse`，包含 `items` 和 `total`
+
+#### 创建 PR
+
+```
+POST /api/v1/posts/:id/pulls
+Content-Type: application/json
+
+{
+  "user_email": "reader@example.com",
+  "content": "建议修改：这里应该用 async/await"
+}
+```
+
+响应：201 返回 `PullResponse`
+
+#### 更新 PR 状态
+
+```
+PUT /api/v1/pulls/:id
+Content-Type: application/json
+
+{
+  "status": "merged"
+}
+```
+
+状态值：`open`、`closed`、`merged`
+
+响应：`PullResponse`
+
+#### 添加评论
+
+```
+POST /api/v1/pulls/:id/comments
+Content-Type: application/json
+
+{
+  "user_email": "reader@example.com",
+  "content": "同意这个修改，已合并"
+}
+```
+
+响应：201 返回 `CommentResponse`
+
+---
+
+### 数据备份
+
+#### 创建备份（需要认证）
+
+```
+POST /api/v1/backup
+Authorization: Bearer YOUR_ADMIN_KEY
+```
+
+响应：`BackupResponse`，包含 `message`、`filename`、`size_bytes`
+
+#### 获取备份列表（需要认证）
+
+```
+GET /api/v1/backup/list
+Authorization: Bearer YOUR_ADMIN_KEY
+```
+
+响应：`BackupListResponse`，包含 `backups` 数组和 `total`
+
+#### 恢复备份（需要认证）
+
+```
+POST /api/v1/backup/restore
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_KEY
+
+{
+  "filename": "backup_20250101_120000.sql"
+}
+```
+
+响应：`RestoreResponse`
+
+---
+
+### 视频上传
+
+#### 上传视频（需要认证）
+
+```
+POST /api/v1/videos
+Content-Type: multipart/form-data
+Authorization: Bearer YOUR_ADMIN_KEY
+
+file: <视频文件>
+```
+
+支持格式：MP4、WebM、OGG
+最大文件大小：100MB
+
+响应：
+```json
+{
+  "url": "/static/videos/550e8400-e29b-41d4-a716-446655440000.mp4",
+  "filename": "550e8400-e29b-41d4-a716-446655440000.mp4"
+}
+```
+
+---
+
 ### 静态文件
 
 ```
 GET /static/:filename
 ```
 
-提供 `static/` 目录下的上传图片。
+提供 `static/` 目录下的上传图片和视频。
 
 ## 数据类型
 
@@ -198,3 +314,80 @@ GET /static/:filename
 ### ExportedPost（导出文章）
 
 与 `PostResponse` 字段相同。用于 JSON/CSV 导出。
+
+### PullResponse（PR 响应）
+
+```json
+{
+  "id": 1,
+  "post_id": 1,
+  "user_email": "reader@example.com",
+  "content": "建议修改：这里应该用 async/await",
+  "status": "open",
+  "created_at": "2025-01-01T00:00:00Z"
+}
+```
+
+### PullListResponse（PR 列表响应）
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "post_id": 1,
+      "user_email": "reader@example.com",
+      "content": "建议修改",
+      "status": "open",
+      "created_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+### CommentResponse（评论响应）
+
+```json
+{
+  "id": 1,
+  "pull_request_id": 1,
+  "user_email": "reader@example.com",
+  "content": "同意这个修改",
+  "created_at": "2025-01-01T00:00:00Z"
+}
+```
+
+### BackupResponse（备份响应）
+
+```json
+{
+  "message": "Backup created successfully",
+  "filename": "backup_20250101_120000.sql",
+  "size_bytes": 1024000
+}
+```
+
+### BackupListResponse（备份列表响应）
+
+```json
+{
+  "backups": [
+    {
+      "filename": "backup_20250101_120000.sql",
+      "size_bytes": 1024000,
+      "created_at": "2025-01-01T12:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+### RestoreResponse（恢复响应）
+
+```json
+{
+  "message": "Database restored successfully",
+  "filename": "backup_20250101_120000.sql"
+}
+```

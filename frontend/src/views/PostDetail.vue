@@ -3,6 +3,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NSpin, NButton, NInput, useMessage } from 'naive-ui'
 import { usePosts } from '../composables/usePosts'
+import PullRequest from '../components/PullRequest.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,7 +17,6 @@ const {
   fetchPost,
   fetchPostTodos,
   createSubscriber,
-  formatDate,
 } = usePosts()
 
 // 订阅表单状态
@@ -43,12 +43,27 @@ function formatFullDate(isoDate: string): string {
 /**
  * 处理内容以高亮 #todo 标签
  * 将 #todo 模式替换为带样式的 span 和可选的订阅按钮
+ * 同时将 !video[url] 转换为 <video> 播放器
  */
 function processContent(content: string): string {
   if (!content) return ''
 
+  // 第一步：提取视频标记，替换为占位符（在 HTML 转义之前）
+  const videoPlaceholders: string[] = []
+  let processed = content.replace(
+    /!video\[([^\]]+)\]/g,
+    (_match, url: string) => {
+      const index = videoPlaceholders.length
+      const safeUrl = url.replace(/"/g, '&quot;')
+      videoPlaceholders.push(
+        `<div class="post-video"><video src="${safeUrl}" controls playsinline preload="metadata" /></div>`
+      )
+      return `__VIDEO_PLACEHOLDER_${index}__`
+    }
+  )
+
   // 转义 HTML 以防止 XSS
-  let processed = content
+  processed = processed
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -60,7 +75,7 @@ function processContent(content: string): string {
   // 高亮 #todo 标签
   processed = processed.replace(
     /#todo\b([^#]*?)(?=#todo|$)/g,
-    (match, taskText) => {
+    (_match, taskText) => {
       const task = taskText.trim() || '待办事项'
       const escapedTask = task.replace(/"/g, '&quot;')
       return `<span class="todo-highlight" data-task="${escapedTask}">
@@ -77,6 +92,14 @@ function processContent(content: string): string {
   if (!processed.startsWith('<p>')) {
     processed = '<p>' + processed + '</p>'
   }
+
+  // 第二步：还原视频占位符为 <video> 标签
+  videoPlaceholders.forEach((videoHtml, index) => {
+    processed = processed.replace(
+      `__VIDEO_PLACEHOLDER_${index}__`,
+      videoHtml
+    )
+  })
 
   return processed
 }
@@ -224,6 +247,9 @@ onMounted(async () => {
           </li>
         </ul>
       </section>
+
+      <!-- Pull Requests Section -->
+      <PullRequest :post-id="postId" />
 
       <!-- Subscribe Modal/Form -->
       <div v-if="showSubscribeForm" class="subscribe-overlay" @click.self="cancelSubscribe">
@@ -505,6 +531,28 @@ onMounted(async () => {
   font-style: italic;
 }
 
+/* --- 视频播放器 --- */
+.post-body :deep(.post-video) {
+  margin: var(--space-6) 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--color-border-light);
+  transition: box-shadow var(--transition-base);
+}
+
+.post-body :deep(.post-video:hover) {
+  box-shadow: var(--shadow-md);
+}
+
+.post-body :deep(.post-video video) {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 520px;
+  object-fit: contain;
+}
+
 /* --- #todo 高亮样式 --- */
 .post-body :deep(.todo-highlight) {
   display: inline-flex;
@@ -756,6 +804,10 @@ onMounted(async () => {
     width: 100%;
     justify-content: center;
     margin-top: var(--space-1);
+  }
+
+  .post-body :deep(.post-video video) {
+    max-height: 280px;
   }
 
   .subscribe-form {

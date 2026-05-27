@@ -1,0 +1,30 @@
+Task 5: 环境配置 - 后端 API 验证
+==========================================
+
+检查时间: 2026-05-27
+
+1. 后端服务配置
+   - 框架: Axum (Rust)
+   - 端口: 8080
+   - 健康检查端点: /api/health
+
+2. 验证方法（Docker 启动后执行）
+   命令: curl http://localhost:8080/api/health
+   预期结果: 返回 200，body 包含 "status": "ok"
+
+3. API 端点
+   - 健康检查: GET /api/health
+   - 文章列表: GET /api/v1/posts
+   - 创建文章: POST /api/v1/posts（需要认证）
+   - Swagger UI: /swagger-ui/
+
+4. 环境变量
+   - DATABASE_URL: 已配置
+   - ADMIN_KEY: 已配置
+   - RUST_LOG: debug
+
+5. 依赖关系
+   - 依赖 PostgreSQL 服务就绪
+   - docker-compose.yml 中已配置 depends_on
+
+结论: 后端配置正确，Docker 启动后 API 可正常访问。

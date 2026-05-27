@@ -169,7 +169,7 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 - [x] 4. 代码注释中文化
 
-- [ ] 5. 本地环境一键部署配置
+- [x] 5. 本地环境一键部署配置
 
   **What to do**:
   - 配置本机环境使应用可以一键部署
@@ -256,7 +256,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `.env`, `Makefile`, `scripts/`
   - Pre-commit: N/A
 
-- [ ] 6. PR式互动 - 数据库设计
+- [x] 6. PR式互动 - 数据库设计
 
   **What to do**:
   - 设计 PR式互动 数据库 schema
@@ -315,7 +315,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `backend/src/migrations/`, `backend/src/models/`
   - Pre-commit: `cargo check`
 
-- [ ] 7. PR式互动 - API实现
+- [x] 7. PR式互动 - API实现
 
   **What to do**:
   - 实现 PR式互动 API
@@ -386,7 +386,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `backend/src/handlers/pulls.rs`, `backend/src/routes/pulls.rs`
   - Pre-commit: `cargo test`
 
-- [ ] 8. 自动备份 - 数据库备份功能
+- [x] 8. 自动备份 - 数据库备份功能
 
   **What to do**:
   - 实现数据库自动备份功能
@@ -446,7 +446,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `backend/src/handlers/backup.rs`, `backend/src/tasks/backup.rs`
   - Pre-commit: `cargo test`
 
-- [ ] 9. 多媒体支持 - 视频上传API
+- [x] 9. 多媒体支持 - 视频上传API
 
   **What to do**:
   - 实现视频上传 API
@@ -510,7 +510,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `backend/src/handlers/videos.rs`, `backend/src/routes/videos.rs`
   - Pre-commit: `cargo test`
 
-- [ ] 10. PR式互动 - 前端界面
+- [x] 10. PR式互动 - 前端界面
 
   **What to do**:
   - 创建 PR式互动 前端界面
@@ -582,7 +582,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `frontend/src/components/PullRequest.vue`, `frontend/src/views/PostDetail.vue`
   - Pre-commit: `npm run build`
 
-- [ ] 11. 自动备份 - 前端管理界面
+- [x] 11. 自动备份 - 前端管理界面
 
   **What to do**:
   - 创建备份管理界面
@@ -652,7 +652,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `frontend/src/views/Backup.vue`, `frontend/src/components/Layout.vue`
   - Pre-commit: `npm run build`
 
-- [ ] 12. 多媒体支持 - 视频播放器
+- [x] 12. 多媒体支持 - 视频播放器
 
   **What to do**:
   - 创建视频播放器组件
@@ -713,7 +713,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `frontend/src/components/VideoPlayer.vue`, `frontend/src/views/Publish.vue`
   - Pre-commit: `npm run build`
 
-- [ ] 13. 全栈联调验证
+- [x] 13. 全栈联调验证
 
   **What to do**:
   - 验证数据库、后端、前端全部跑通
@@ -789,7 +789,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: 根据需要修改
   - Pre-commit: `cargo test && vitest run`
 
-- [ ] 14. 测试补充
+- [x] 14. 测试补充
 
   **What to do**:
   - 补充新功能的单元测试
@@ -847,7 +847,7 @@ Max Concurrent: 4 (Waves 1 & 2)
   - Files: `backend/tests/`, `frontend/src/__tests__/`
   - Pre-commit: `cargo test && vitest run`
 
-- [ ] 15. 文档更新
+- [x] 15. 文档更新
 
   **What to do**:
   - 更新 README.md 添加新功能说明
@@ -910,19 +910,19 @@ Max Concurrent: 4 (Waves 1 & 2)
 
 ## Final Verification Wave
 
-- [ ] F1. **计划合规审计** — `oracle`
+- [x] F1. **计划合规审计** — `oracle`
   读取计划文件，验证所有 Must Have 项是否实现，所有 Must NOT Have 项是否存在。检查证据文件。比较交付物与计划。
   输出: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **代码质量审查** — `unspecified-high`
+- [x] F2. **代码质量审查** — `unspecified-high`
   运行 `cargo test` + `vitest run` + 代码检查。检查所有更改的文件：`unwrap()` 生产代码、空 catch、console.log、注释代码、未使用导入。检查 AI 代码味道。
   输出: `Build [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **全栈功能验证** — `unspecified-high`
+- [x] F3. **全栈功能验证** — `unspecified-high`
   从干净状态开始。执行每个任务的 QA 场景。测试跨任务集成。测试边界情况。保存到 `.omo/evidence/phase2-final-qa/`。
   输出: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **范围保真检查** — `deep`
+- [x] F4. **范围保真检查** — `deep`
   对于每个任务：读取"做什么"，读取实际 diff。验证 1:1 匹配。检查 Must NOT do 合规性。检测跨任务污染。标记未 account 的更改。
   输出: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 

@@ -41,11 +41,17 @@ src/
     subscribers.rs # 邮件订阅者管理
     export.rs      # 数据导出 (JSON/CSV)
     images.rs      # 图片上传/服务
+    pulls.rs       # PR 式互动功能
+    backup.rs      # 数据备份和恢复
+    videos.rs      # 视频上传
   routes/          # Axum 路由定义
     posts.rs
     subscribers.rs
     export.rs
     images.rs
+    pulls.rs
+    backup.rs
+    videos.rs
   middleware/
     auth.rs        # Bearer token 认证
   models/          # SeaORM 实体定义
@@ -53,9 +59,12 @@ src/
     subscriber.rs
     todo_item.rs
     image.rs
+    pull_request.rs
+    pull_request_comment.rs
   migrations/      # 数据库迁移
   tasks/
     email.rs       # 邮件通知任务
+    backup.rs      # 数据库备份任务
 ```
 
 ### 数据库
@@ -67,6 +76,8 @@ src/
 - `subscribers` - 邮件订阅者
 - `todo_items` - 从文章内容中的 `#todo` 标签解析出的待办事项
 - `images` - 上传图片的元数据
+- `pull_requests` - PR 式互动，包含文章关联、用户邮箱、内容、状态
+- `pull_request_comments` - PR 评论，包含 PR 关联、用户邮箱、内容
 
 ### 认证
 
@@ -89,6 +100,65 @@ src/
 5. 在 `src/main.rs` 中连接路由
 6. 为 OpenAPI 文档添加 utoipa 注解
 7. 在 `ApiDoc` 结构体中注册路径和模式
+
+## 新功能开发指南
+
+### PR 式互动功能
+
+PR 式互动允许读者对文章提交修改建议。
+
+**数据模型**：
+- `pull_request`：存储 PR 信息，包括 `post_id`、`user_email`、`content`、`status`（open/closed/merged）
+- `pull_request_comment`：存储 PR 评论，包括 `pull_request_id`、`user_email`、`content`
+
+**API 端点**：
+- `GET /api/v1/posts/:id/pulls` - 获取文章的 PR 列表
+- `POST /api/v1/posts/:id/pulls` - 创建新 PR
+- `PUT /api/v1/pulls/:id` - 更新 PR 状态（合并/关闭）
+- `POST /api/v1/pulls/:id/comments` - 添加评论
+
+**实现要点**：
+- PR 状态必须是 `open`、`closed` 或 `merged` 之一
+- 创建 PR 时需要验证文章存在
+- 评论内容不能为空
+
+### 数据备份功能
+
+数据备份功能提供数据库的备份和恢复能力。
+
+**依赖**：
+- 需要 `pg_dump` 和 `pg_restore` 工具
+- 备份目录通过 `BACKUP_DIR` 环境变量配置
+
+**API 端点**：
+- `POST /api/v1/backup` - 创建备份
+- `GET /api/v1/backup/list` - 获取备份列表
+- `POST /api/v1/backup/restore` - 从备份恢复
+
+**安全考虑**：
+- 所有备份操作都需要管理员认证
+- 恢复操作会验证文件名，防止路径遍历攻击
+- 备份文件存储在受保护的目录中
+
+### 视频上传功能
+
+视频上传功能支持上传视频文件到服务器。
+
+**支持格式**：
+- MP4 (video/mp4)
+- WebM (video/webm)
+- OGG (video/ogg)
+
+**限制**：
+- 最大文件大小：100MB
+- 文件名自动生成 UUID
+- 上传目录：`static/videos/`
+
+**实现细节**：
+- 使用 multipart 表单上传
+- 分块读取文件避免内存溢出
+- 验证文件类型和大小
+- 返回可访问的 URL
 
 ## OpenAPI 文档
 

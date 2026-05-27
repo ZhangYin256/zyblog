@@ -1,0 +1,31 @@
+Phase 2 Task 6: PR式互动 数据库 schema
+========================================
+
+## cargo check 结果
+✅ 编译通过（仅有 warnings，无 errors）
+
+## 创建的迁移文件
+1. m20240101_000006_create_pull_requests_table.rs
+   - Table: pull_requests
+   - Columns: id (PK, auto_increment), post_id (FK→posts), user_email, content, status (default "pending"), created_at
+   - Indexes: idx_pull_requests_post_id, idx_pull_requests_status
+   - Foreign key: fk_pull_requests_post_id (CASCADE on delete)
+
+2. m20240101_000007_create_pull_request_comments_table.rs
+   - Table: pull_request_comments
+   - Columns: id (PK, auto_increment), pull_request_id (FK→pull_requests), content, created_at
+   - Indexes: idx_pull_request_comments_pull_request_id
+   - Foreign key: fk_pull_request_comments_pull_request_id (CASCADE on delete)
+
+## 创建的 Model 文件
+1. src/models/pull_request.rs
+   - struct Model: id, post_id, user_email, content, status, created_at
+   - Relations: Post (belongs_to), PullRequestComment (has_many)
+
+2. src/models/pull_request_comment.rs
+   - struct Model: id, pull_request_id, content, created_at
+   - Relations: PullRequest (belongs_to)
+
+## 注册
+- migrations/mod.rs: 已添加两个新迁移
+- models/mod.rs: 已添加 pull_request 和 pull_request_comment 模块

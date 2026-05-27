@@ -20,6 +20,12 @@ pub struct Config {
     pub smtp_password: String,
     /// Email "from" address
     pub smtp_from: String,
+    /// Backup directory path
+    pub backup_dir: String,
+    /// Backup interval in hours
+    pub backup_interval_hours: u64,
+    /// Maximum number of backup files to retain
+    pub backup_retention_count: usize,
 }
 
 impl Config {
@@ -43,6 +49,17 @@ impl Config {
         let smtp_from =
             env::var("SMTP_FROM").unwrap_or_else(|_| "noreply@zyblog.local".to_string());
 
+        let backup_dir =
+            env::var("BACKUP_DIR").unwrap_or_else(|_| "./backups".to_string());
+        let backup_interval_hours: u64 = env::var("BACKUP_INTERVAL_HOURS")
+            .unwrap_or_else(|_| "24".to_string())
+            .parse()
+            .unwrap_or(24);
+        let backup_retention_count: usize = env::var("BACKUP_RETENTION_COUNT")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse()
+            .unwrap_or(10);
+
         Ok(Self {
             server_addr,
             database_url,
@@ -52,6 +69,9 @@ impl Config {
             smtp_username,
             smtp_password,
             smtp_from,
+            backup_dir,
+            backup_interval_hours,
+            backup_retention_count,
         })
     }
 }

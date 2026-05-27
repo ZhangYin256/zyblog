@@ -10,10 +10,14 @@ mod tasks;
 
 use axum::{routing::get, Json, Router};
 use config::Config;
+use sea_orm_migration::MigratorTrait;
+use routes::backup::backup_routes;
 use routes::export::export_routes;
 use routes::images::image_routes;
 use routes::posts::posts_routes;
+use routes::pulls::{pulls_routes, pull_item_routes};
 use routes::subscribers::routes as subscriber_routes;
+use routes::videos::video_routes;
 use serde_json::{json, Value};
 use state::AppState;
 use std::sync::Arc;
@@ -51,6 +55,10 @@ async fn openapi_json() -> Json<Value> {
         handlers::subscribers::create_subscriber,
         handlers::subscribers::list_subscribers,
         handlers::export::export_posts,
+        handlers::pulls::create_pull,
+        handlers::pulls::list_pulls,
+        handlers::pulls::update_pull,
+        handlers::pulls::add_comment,
     ),
     components(schemas(
         handlers::posts::PostResponse,
@@ -62,17 +70,40 @@ async fn openapi_json() -> Json<Value> {
         handlers::subscribers::SubscriberResponse,
         handlers::subscribers::CreateSubscriberRequest,
         handlers::export::ExportedPost,
+        handlers::pulls::PullResponse,
+        handlers::pulls::PullListResponse,
+        handlers::pulls::CreatePullRequest,
+        handlers::pulls::UpdatePullRequest,
+        handlers::pulls::AddCommentRequest,
+        handlers::pulls::CommentResponse,
     )),
     tags(
         (name = "posts", description = "Blog post management"),
         (name = "subscribers", description = "Newsletter subscribers"),
-        (name = "export", description = "Data export")
+        (name = "export", description = "Data export"),
+        (name = "pulls", description = "Pull request interactions")
     )
 )]
 struct ApiDoc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && args[1] == "migrate" {
+        let config = Config::from_env()?;
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                EnvFilter::new("info")
+            }))
+            .init();
+
+        let db = sea_orm::Database::connect(&config.database_url).await?;
+        tracing::info!("Running database migrations...");
+        migrations::Migrator::up(&db, None).await?;
+        tracing::info!("Migrations completed successfully!");
+        return Ok(());
+    }
+
     let config = Config::from_env()?;
 
     tracing_subscriber::fmt()
@@ -102,6 +133,34 @@ async fn main() -> anyhow::Result<()> {
         config: config.clone(),
     });
 
+    // Start scheduled backup task
+    let backup_state = state.clone();
+    tokio::spawn(async move {
+        let backup_dir = std::path::PathBuf::from(&backup_state.config.backup_dir);
+        let interval_hours = backup_state.config.backup_interval_hours;
+        let retention = backup_state.config.backup_retention_count;
+
+        tracing::info!(
+            "Backup scheduler started: interval={}h, retention={}",
+            interval_hours,
+            retention
+        );
+
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(interval_hours * 3600)).await;
+
+            if let Err(e) = tasks::backup::run_scheduled_backup(
+                &backup_state.config.database_url,
+                &backup_dir,
+                retention,
+            )
+            .await
+            {
+                tracing::error!("Scheduled backup failed: {}", e);
+            }
+        }
+    });
+
     // 公开路由（无需认证）
     let public_routes = Router::new()
         .route("/api/health", get(health_check))
@@ -109,12 +168,22 @@ async fn main() -> anyhow::Result<()> {
         .nest(
             "/api/v1/subscribers",
             subscriber_routes().with_state(state.clone()),
+        )
+        .nest(
+            "/api/v1/posts/{id}/pulls",
+            pulls_routes().with_state(state.clone()),
+        )
+        .nest(
+            "/api/v1/pulls/{id}",
+            pull_item_routes().with_state(state.clone()),
         );
 
     // 受保护路由（写操作需要认证）
     let protected_routes = Router::new()
         .nest("/api/v1/posts", posts_routes().with_state(state.clone()))
         .nest("/api/v1/export", export_routes().with_state(state.clone()))
+        .nest("/api/v1/backup", backup_routes().with_state(state.clone()))
+        .merge(video_routes())
         .layer(axum::middleware::from_fn(middleware::auth::admin_auth_middleware));
 
     let app = public_routes

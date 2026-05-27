@@ -24,6 +24,9 @@ fn test_state() -> Arc<AppState> {
             smtp_username: "".to_string(),
             smtp_password: "".to_string(),
             smtp_from: "test@test.com".to_string(),
+            backup_dir: "./test_backups".to_string(),
+            backup_interval_hours: 24,
+            backup_retention_count: 10,
         },
     })
 }

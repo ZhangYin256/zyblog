@@ -170,6 +170,51 @@ function insertList() {
   })
 }
 
+// --- 视频处理 ---
+function insertVideoMarkdown(url: string) {
+  const textarea = contentRef.value
+  if (!textarea) return
+
+  const start = textarea.selectionStart
+  const markdown = `!video[${url}]`
+
+  content.value =
+    content.value.substring(0, start) + markdown + content.value.substring(start)
+
+  nextTick(() => {
+    textarea.focus()
+    const newPos = start + markdown.length
+    textarea.setSelectionRange(newPos, newPos)
+  })
+}
+
+function handleVideoUpload() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'video/mp4,video/webm,video/ogg'
+  input.onchange = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    await processVideoFile(file)
+  }
+  input.click()
+}
+
+async function processVideoFile(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const { data } = await api.post('/api/v1/videos', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    insertVideoMarkdown(data.url)
+    message.success('视频已上传')
+  } catch {
+    message.error('视频上传失败')
+  }
+}
+
 // --- 图片处理 ---
 function insertImageMarkdown(url: string, alt: string = 'image') {
   const textarea = contentRef.value
@@ -252,6 +297,8 @@ async function handleDrop(e: DragEvent) {
   for (const file of files) {
     if (file.type.startsWith('image/')) {
       await processImageFile(file)
+    } else if (file.type.startsWith('video/')) {
+      await processVideoFile(file)
     }
   }
 }
@@ -423,6 +470,13 @@ onUnmounted(() => {
         >
           <span class="toolbar-btn__icon">⊕</span>
         </button>
+        <button
+          class="toolbar-btn"
+          title="插入视频"
+          @click="handleVideoUpload"
+        >
+          <span class="toolbar-btn__icon">▶</span>
+        </button>
       </div>
 
       <!-- Content Textarea -->
@@ -435,7 +489,7 @@ onUnmounted(() => {
 
 支持 Markdown 语法：
 **加粗** — 列表项以 - 开头
-插入图片：点击上方工具栏或直接粘贴/拖拽"
+插入图片/视频：点击上方工具栏或直接粘贴/拖拽"
           @paste="handlePaste"
         ></textarea>
       </div>
@@ -444,7 +498,7 @@ onUnmounted(() => {
       <div v-if="isDragging" class="publish-drag-overlay">
         <div class="publish-drag-overlay__content">
           <span class="publish-drag-overlay__icon">⊕</span>
-          <span>松开鼠标上传图片</span>
+          <span>松开鼠标上传图片或视频</span>
         </div>
       </div>
     </div>
@@ -455,7 +509,7 @@ onUnmounted(() => {
         <kbd>Ctrl</kbd>+<kbd>B</kbd> 加粗 · <kbd>Ctrl</kbd>+<kbd>S</kbd> 保存 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 发布
       </span>
       <span class="publish-footer__hint">
-        支持粘贴和拖拽图片
+        支持粘贴和拖拽图片、视频
       </span>
     </footer>
 

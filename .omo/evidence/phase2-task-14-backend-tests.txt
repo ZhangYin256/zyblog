@@ -1,0 +1,39 @@
+
+running 8 tests
+test restore_request_deserialize ... ok
+test restore_backup_rejects_slash_in_filename ... ok
+test restore_backup_returns_not_found_for_missing_file ... ok
+test restore_backup_rejects_backslash_in_filename ... ok
+test restore_backup_rejects_path_traversal ... ok
+test list_backups_returns_error_without_db ... ok
+test backup_error_response_is_json ... ok
+test create_backup_returns_error_without_db ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 10 tests
+test add_comment_request_deserialize ... ok
+test create_pull_request_deserialize ... ok
+test add_comment_returns_error_without_db ... ok
+test list_pulls_returns_error_status_without_db ... ok
+test list_pulls_returns_error_without_db ... ok
+test update_pull_request_deserialize_merged ... ok
+test create_pull_returns_error_without_db ... ok
+test update_pull_request_deserialize_open ... ok
+test update_pull_returns_error_without_db ... ok
+test update_pull_request_deserialize_closed ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test upload_video_unsupported_type ... ok
+test upload_video_rejects_image_type ... ok
+test upload_video_missing_file_field ... ok
+test upload_video_valid_webm ... ok
+test upload_video_error_response_is_json ... ok
+test upload_video_valid_mp4 ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

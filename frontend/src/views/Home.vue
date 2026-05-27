@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { NSpin, NEmpty, NButton } from 'naive-ui'
+import { NSpin, NEmpty, NButton, NPagination } from 'naive-ui'
 import { usePosts } from '../composables/usePosts'
 
 const router = useRouter()

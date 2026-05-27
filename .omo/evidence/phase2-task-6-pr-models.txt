@@ -1,0 +1,39 @@
+Phase 2 Task 6: PR式互动 Model 编译验证
+==========================================
+
+## cargo check 结果
+✅ 编译通过
+
+## 新增 Model 结构体
+
+### PullRequest (src/models/pull_request.rs)
+```rust
+pub struct Model {
+    pub id: i32,           // PK
+    pub post_id: i32,      // FK→posts
+    pub user_email: String,
+    pub content: String,
+    pub status: String,    // "pending" default
+    pub created_at: DateTime<Utc>,
+}
+```
+
+### PullRequestComment (src/models/pull_request_comment.rs)
+```rust
+pub struct Model {
+    pub id: i32,              // PK
+    pub pull_request_id: i32, // FK→pull_requests
+    pub content: String,
+    pub created_at: DateTime<Utc>,
+}
+```
+
+## Relations
+- PullRequest → Post (belongs_to)
+- PullRequest → PullRequestComment (has_many)
+- PullRequestComment → PullRequest (belongs_to)
+
+## Warnings (expected, not errors)
+- unused import warnings for backup handlers
+- unused struct/function warnings for pulls handler (not yet wired)
+- dead_code warnings for migration enums (standard SeaORM pattern)

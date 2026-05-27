@@ -26,7 +26,7 @@ describe('useAuth', () => {
   })
 
   it('returns initial state', () => {
-    const { isAuthenticated, adminKey } = useAuth()
+    const { isAuthenticated } = useAuth()
 
     expect(isAuthenticated.value).toBe(false)
   })

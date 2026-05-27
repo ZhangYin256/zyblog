@@ -1,0 +1,65 @@
+=== 新功能验证 - Phase 2 Task 13 ===
+日期: 2026-05-27
+
+注意: 由于 PostgreSQL 数据库关闭，无法实际测试新功能
+以下为功能验证计划和当前状态
+
+=== 1. PR式互动功能 ===
+端点:
+- GET /api/v1/posts/:id/pulls - 获取文章的 PR 列表
+- POST /api/v1/posts/:id/pulls - 创建 PR
+- PUT /api/v1/pulls/:id - 更新 PR 状态
+- POST /api/v1/pulls/:id/comments - 添加评论
+
+数据库表:
+- pull_requests (已创建)
+- pull_request_comments (已创建)
+
+测试状态: ⏸️ 等待数据库启动
+
+=== 2. 自动备份功能 ===
+端点:
+- POST /api/v1/backup - 创建备份 (需要认证)
+- GET /api/v1/backup/list - 获取备份列表 (需要认证)
+- POST /api/v1/backup/restore - 恢复备份 (需要认证)
+
+配置:
+- backup_interval_hours: 24
+- backup_retention_count: 10
+- backup_dir: ./backups
+
+后端日志: "Backup scheduler started: interval=24h, retention=10"
+
+测试状态: ⏸️ 等待数据库启动
+
+=== 3. 视频上传功能 ===
+端点:
+- POST /api/v1/videos - 上传视频 (需要认证)
+
+数据库表: videos (已创建)
+
+测试状态: ⏸️ 等待数据库启动
+
+=== 验证步骤 (数据库启动后) ===
+
+1. 创建测试文章
+   curl -X POST http://localhost:8080/api/v1/posts \
+     -H "Authorization: Bearer zyblog_admin_2024_secure_key" \
+     -H "Content-Type: application/json" \
+     -d '{"title":"Test Post","content":"Test content","published":true}'
+
+2. 测试 PR 创建
+   curl -X POST http://localhost:8080/api/v1/posts/1/pulls \
+     -H "Content-Type: application/json" \
+     -d '{"user_email":"test@example.com","content":"Suggested edit"}'
+
+3. 测试备份创建
+   curl -X POST http://localhost:8080/api/v1/backup \
+     -H "Authorization: Bearer zyblog_admin_2024_secure_key"
+
+4. 测试备份列表
+   curl http://localhost:8080/api/v1/backup/list \
+     -H "Authorization: Bearer zyblog_admin_2024_secure_key"
+
+=== 总结 ===
+所有新功能代码已部署，等待数据库启动后进行实际测试
