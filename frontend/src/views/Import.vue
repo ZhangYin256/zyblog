@@ -97,7 +97,7 @@ function parseFrontmatter(markdown: string): ParsedFrontmatter {
     content,
     excerpt: metadata.excerpt || metadata.description,
     coverImage: metadata.cover_image || metadata.coverImage || metadata.image,
-    status: metadata.status || 'draft',
+    status: metadata.status || 'published',
     tags,
     date: metadata.date,
   }
