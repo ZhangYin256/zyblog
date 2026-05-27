@@ -146,6 +146,55 @@ export function usePosts() {
     })
   }
 
+  /**
+   * 获取草稿文章列表
+   * @param page - 页码（从 1 开始）
+   * @param perPage - 每页条目数
+   */
+  async function fetchDrafts(page = 1, perPage = 10) {
+    return fetchPosts(page, perPage, 'draft')
+  }
+
+  /**
+   * 发布草稿文章（将状态从 draft 改为 published）
+   * @param id - 文章 ID
+   */
+  async function publishPost(id: number | string) {
+    loading.value = true
+    error.value = null
+
+    try {
+      await api.put(`/api/v1/posts/${id}`, { status: 'published' })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to publish post'
+      error.value = message
+      console.error('publishPost error:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 删除文章
+   * @param id - 文章 ID
+   */
+  async function deletePost(id: number | string) {
+    loading.value = true
+    error.value = null
+
+    try {
+      await api.delete(`/api/v1/posts/${id}`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to delete post'
+      error.value = message
+      console.error('deletePost error:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     // 状态
     posts,
@@ -158,6 +207,9 @@ export function usePosts() {
     // 方法
     fetchPosts,
     fetchPost,
+    fetchDrafts,
+    publishPost,
+    deletePost,
     fetchPostTodos,
     createSubscriber,
     formatDate,

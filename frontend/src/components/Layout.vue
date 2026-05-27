@@ -38,6 +38,11 @@ const menuOptions = computed(() => [
     icon: renderIcon('☰'),
   },
   {
+    label: '草稿箱',
+    key: '/drafts',
+    icon: renderIcon('📝'),
+  },
+  {
     label: '导入文章',
     key: '/import',
     icon: renderIcon('↓'),
@@ -54,6 +59,7 @@ const navIconMap: Record<string, string> = {
   '/': '⌂',
   '/publish': '✎',
   '/posts': '☰',
+  '/drafts': '📝',
   '/import': '↓',
   '/backup': '⤓',
 }
