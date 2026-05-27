@@ -49,27 +49,44 @@
 
 ### 前置要求
 
-- Docker 和 Docker Compose
-- （可选）Rust 工具链，用于本地开发
+- PostgreSQL 15+
+- Rust 工具链（cargo）
+- Node.js 20+（npm）
 
-### 使用 Docker
+### 安装 PostgreSQL
 
 ```bash
-# 克隆仓库
-git clone <repo-url>
-cd zyblog
+# Ubuntu/Debian
+sudo apt update
+sudo apt install postgresql postgresql-contrib
 
-# 复制环境变量文件
-cp .env.example .env
+# 启动服务
+sudo service postgresql start
 
-# 编辑 .env 设置你的 ADMIN_KEY 和其他配置
-# vim .env
+# 设置开机自启（可选）
+sudo systemctl enable postgresql
+```
 
-# 启动所有服务
-docker-compose up -d
+### 本地开发（推荐）
 
-# 运行数据库迁移
-make migrate
+```bash
+# 1. 创建数据库和用户
+sudo -u postgres psql
+CREATE USER zyblog WITH PASSWORD 'zyblog_dev';
+CREATE DATABASE zyblog OWNER zyblog;
+\q
+
+# 2. 运行数据库迁移
+cd backend
+DATABASE_URL=postgres://zyblog:zyblog_dev@localhost:5432/zyblog cargo run -- migrate
+
+# 3. 启动后端（保持终端运行）
+DATABASE_URL=postgres://zyblog:zyblog_dev@localhost:5432/zyblog ADMIN_KEY=zyblog_admin_2024_secure_key cargo run
+
+# 4. 启动前端（另开终端）
+cd frontend
+npm install
+npm run dev
 ```
 
 应用将在以下地址可用：
@@ -78,31 +95,40 @@ make migrate
 - **后端 API**: http://localhost:8080
 - **Swagger UI**: http://localhost:8080/swagger-ui/
 
-### 本地开发
+### 一键启动脚本
+
+项目根目录的 `run.txt` 包含所有启动命令，可直接复制执行：
 
 ```bash
-# 仅启动数据库
-docker-compose up -d postgres
+# 查看启动命令
+cat run.txt
+```
 
-# 设置环境变量
-export DATABASE_URL=postgres://zyblog:zyblog_dev@localhost:5432/zyblog
-export ADMIN_KEY=your_admin_key
+脚本内容：
+1. 启动 PostgreSQL：`sudo service postgresql start`
+2. 启动后端（在 `~/zyblog/backend` 目录）：设置 `DATABASE_URL` 和 `ADMIN_KEY` 后 `cargo run`
+3. 启动前端（另开终端，在 `~/zyblog/frontend` 目录）：`npm run dev`
 
-# 运行后端
-cd backend
-cargo run
+### 使用 Docker（可选）
 
-# 运行前端（在另一个终端）
-cd frontend
-npm install
-npm run dev
+如果不希望本地安装 PostgreSQL，可使用 Docker：
+
+```bash
+# 复制环境变量文件
+cp .env.example .env
+
+# 启动所有服务
+docker-compose up -d
+
+# 运行数据库迁移
+make migrate
 ```
 
 ## 环境变量
 
 | 变量 | 说明 | 默认值 |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL 连接字符串 | `postgres://zyblog:zyblog_dev@postgres:5432/zyblog` |
+| `DATABASE_URL` | PostgreSQL 连接字符串 | `postgres://zyblog:zyblog_dev@localhost:5432/zyblog` |
 | `ADMIN_KEY` | 管理员 API 访问的 Bearer 令牌 | （必填） |
 | `SERVER_ADDR` | 后端监听地址 | `0.0.0.0:8080` |
 | `RUST_LOG` | 日志级别 | `zyblog=debug,tower_http=debug` |

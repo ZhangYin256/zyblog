@@ -14,7 +14,7 @@ use sea_orm_migration::MigratorTrait;
 use routes::backup::backup_routes;
 use routes::export::export_routes;
 use routes::images::image_routes;
-use routes::posts::posts_routes;
+use routes::posts::{public_posts_routes, protected_posts_routes};
 use routes::pulls::{pulls_routes, pull_item_routes};
 use routes::subscribers::routes as subscriber_routes;
 use routes::videos::video_routes;
@@ -170,6 +170,10 @@ async fn main() -> anyhow::Result<()> {
             subscriber_routes().with_state(state.clone()),
         )
         .nest(
+            "/api/v1/posts",
+            public_posts_routes().with_state(state.clone()),
+        )
+        .nest(
             "/api/v1/posts/{id}/pulls",
             pulls_routes().with_state(state.clone()),
         )
@@ -180,7 +184,7 @@ async fn main() -> anyhow::Result<()> {
 
     // 受保护路由（写操作需要认证）
     let protected_routes = Router::new()
-        .nest("/api/v1/posts", posts_routes().with_state(state.clone()))
+        .nest("/api/v1/posts", protected_posts_routes().with_state(state.clone()))
         .nest("/api/v1/export", export_routes().with_state(state.clone()))
         .nest("/api/v1/backup", backup_routes().with_state(state.clone()))
         .merge(video_routes())

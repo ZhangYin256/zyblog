@@ -30,6 +30,8 @@ const error = ref<string | null>(null)
 const showAuthDialog = ref(false)
 const adminKeyInput = ref('')
 
+const isDragOver = ref(false)
+
 // 类型
 interface ParsedFrontmatter {
   title: string
@@ -118,6 +120,56 @@ function handleFileUpload(options: { file: UploadFileInfo }) {
   error.value = null
   isLoading.value = true
 
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const content = e.target?.result as string
+      fileContent.value = content
+      parsedData.value = parseFrontmatter(content)
+      isLoading.value = false
+    } catch (err) {
+      error.value = 'Failed to parse the markdown file.'
+      message.error('Parse error')
+      isLoading.value = false
+    }
+  }
+  reader.onerror = () => {
+    error.value = 'Failed to read the file.'
+    message.error('Read error')
+    isLoading.value = false
+  }
+  reader.readAsText(file)
+}
+
+/**
+ * 处理拖拽事件
+ */
+function handleDragOver(e: DragEvent) {
+  e.preventDefault()
+  isDragOver.value = true
+}
+
+function handleDragLeave() {
+  isDragOver.value = false
+}
+
+function handleDrop(e: DragEvent) {
+  e.preventDefault()
+  isDragOver.value = false
+  
+  const files = e.dataTransfer?.files
+  if (!files || files.length === 0) return
+  
+  const file = files[0]
+  if (!file.name.endsWith('.md')) {
+    error.value = 'Unsupported file format. Please upload a .md file.'
+    message.error('Unsupported file format')
+    return
+  }
+  
+  error.value = null
+  isLoading.value = true
+  
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
@@ -251,7 +303,13 @@ const formattedDate = computed(() => {
           @change="handleFileUpload"
           :disabled="isLoading"
         >
-          <div class="upload-trigger">
+          <div 
+            class="upload-trigger"
+            :class="{ 'upload-trigger--drag-over': isDragOver }"
+            @dragover.prevent="handleDragOver"
+            @dragleave="handleDragLeave"
+            @drop.prevent="handleDrop"
+          >
             <div class="upload-icon">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -438,6 +496,12 @@ const formattedDate = computed(() => {
 .upload-trigger:hover {
   border-color: var(--color-accent);
   background: var(--color-accent-light);
+}
+
+.upload-trigger--drag-over {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+  transform: scale(1.01);
 }
 
 .upload-icon {

@@ -40,6 +40,27 @@ const themeOverrides: GlobalThemeOverrides = {
   Tag: {
     borderRadius: '6px',
   },
+  Menu: {
+    itemTextColor: 'rgba(255, 255, 255, 0.7)',
+    itemTextColorHover: '#ffffff',
+    itemTextColorActive: '#ffffff',
+    itemTextColorActiveHover: '#ffffff',
+    itemTextColorChildActive: 'rgba(255, 255, 255, 0.9)',
+    itemTextColorChildActiveHover: '#ffffff',
+    itemIconColor: 'rgba(255, 255, 255, 0.5)',
+    itemIconColorHover: 'rgba(255, 255, 255, 0.9)',
+    itemIconColorActive: '#ffffff',
+    itemIconColorActiveHover: '#ffffff',
+    itemIconColorChildActive: 'rgba(255, 255, 255, 0.8)',
+    itemIconColorChildActiveHover: '#ffffff',
+    itemColorActive: 'rgba(196, 93, 62, 0.25)',
+    itemColorActiveHover: 'rgba(196, 93, 62, 0.3)',
+    itemColorHover: 'rgba(255, 255, 255, 0.06)',
+    arrowColor: 'rgba(255, 255, 255, 0.3)',
+    arrowColorHover: 'rgba(255, 255, 255, 0.6)',
+    arrowColorActive: '#ffffff',
+    arrowColorActiveHover: '#ffffff',
+  },
 }
 </script>
 
