@@ -1,136 +1,109 @@
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import api from '../lib/api'
 
-/** PR 数据结构 */
+/** PR fragment — a single text replacement suggestion */
+export interface Fragment {
+  start_line: number
+  start_col: number
+  end_line: number
+  end_col: number
+  replacement: string
+  description?: string
+}
+
+/** Pull Request with fragment-based content */
 export interface PullRequest {
   id: number
   post_id: number
+  fragments: Fragment[]
+  message: string | null
+  status: string
   user_email: string
-  content: string
-  status: 'open' | 'closed' | 'merged'
   created_at: string
 }
 
-/** PR 列表响应 */
+/** Comment on a PR fragment */
+export interface Comment {
+  id: number
+  pull_request_id: number
+  fragment_index: number
+  line: number
+  content: string
+  user_email: string
+  created_at: string
+}
+
+/** PR list API response */
 export interface PullListResponse {
   items: PullRequest[]
   total: number
 }
 
-/** 评论数据结构 */
-export interface PullComment {
-  id: number
-  pull_request_id: number
-  user_email: string
-  content: string
-  created_at: string
-}
-
-/** 创建 PR 请求 */
-export interface CreatePullPayload {
-  user_email: string
-  content: string
-}
-
-/** 更新 PR 状态请求 */
-export interface UpdatePullPayload {
-  status: 'open' | 'closed' | 'merged'
-}
-
-/** 添加评论请求 */
-export interface AddCommentPayload {
-  user_email: string
-  content: string
-}
-
 /**
- * Pull Request 相关 API 操作的组合式函数
+ * Pull Request composable with fragment-based API.
+ * Accepts postId as a reactive Ref for automatic tracking.
  */
-export function usePullRequests() {
+export function usePullRequests(postId: Ref<number>) {
   const pulls = ref<PullRequest[]>([])
-  const currentPull = ref<PullRequest | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  /**
-   * 获取文章的 PR 列表
-   * @param postId - 文章 ID
-   */
-  async function fetchPulls(postId: number | string) {
+  /** Fetch all PRs for the post */
+  async function fetchPulls(): Promise<void> {
     loading.value = true
     error.value = null
-
     try {
-      const { data } = await api.get<PullListResponse>(`/api/v1/posts/${postId}/pulls`)
+      const { data } = await api.get<PullListResponse>(`/api/v1/posts/${postId.value}/pulls`)
       pulls.value = data.items
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch pull requests'
-      error.value = message
+      error.value = err instanceof Error ? err.message : 'Failed to fetch pull requests'
       console.error('fetchPulls error:', err)
     } finally {
       loading.value = false
     }
   }
 
-  /**
-   * 创建新 PR
-   * @param postId - 文章 ID
-   * @param payload - PR 内容
-   */
-  async function createPull(postId: number | string, payload: CreatePullPayload) {
-    try {
-      const { data } = await api.post<PullRequest>(`/api/v1/posts/${postId}/pulls`, payload)
-      // 添加到列表开头
-      pulls.value.unshift(data)
-      return { success: true, data }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to create pull request'
-      return { success: false, error: message }
-    }
+  /** Create a new PR with fragments */
+  async function createPull(fragments: Fragment[], message: string, email: string): Promise<void> {
+    await api.post(`/api/v1/posts/${postId.value}/pulls`, {
+      fragments,
+      message,
+      user_email: email,
+    })
+    await fetchPulls()
   }
 
-  /**
-   * 更新 PR 状态
-   * @param pullId - PR ID
-   * @param payload - 新状态
-   */
-  async function updatePull(pullId: number, payload: UpdatePullPayload) {
-    try {
-      const { data } = await api.put<PullRequest>(`/api/v1/pulls/${pullId}`, payload)
-      // 更新列表中的 PR
-      const index = pulls.value.findIndex(p => p.id === pullId)
-      if (index !== -1) {
-        pulls.value[index] = data
-      }
-      return { success: true, data }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update pull request'
-      return { success: false, error: message }
-    }
+  /** Apply a PR (admin action — merges fragments into post) */
+  async function applyPull(pullId: number): Promise<void> {
+    await api.post(`/api/v1/pulls/${pullId}/apply`)
+    await fetchPulls()
   }
 
-  /**
-   * 添加评论
-   * @param pullId - PR ID
-   * @param payload - 评论内容
-   */
-  async function addComment(pullId: number, payload: AddCommentPayload) {
-    try {
-      const { data } = await api.post<PullComment>(`/api/v1/pulls/${pullId}/comments`, payload)
-      return { success: true, data }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to add comment'
-      return { success: false, error: message }
-    }
+  /** Add a comment on a specific fragment of a PR */
+  async function addComment(
+    pullId: number,
+    fragmentIndex: number,
+    line: number,
+    content: string,
+    email: string,
+  ): Promise<void> {
+    await api.post(`/api/v1/pulls/${pullId}/comments`, {
+      fragment_index: fragmentIndex,
+      line,
+      content,
+      user_email: email,
+    })
   }
 
-  /**
-   * 格式化日期
-   * @param isoDate - ISO 8601 日期字符串
-   */
+  /** Fetch comments for a PR */
+  async function fetchComments(pullId: number): Promise<Comment[]> {
+    const { data } = await api.get<Comment[]>(`/api/v1/pulls/${pullId}/comments`)
+    return data
+  }
+
+  /** Format ISO date to Chinese locale string */
   function formatDate(isoDate: string): string {
-    const date = new Date(isoDate)
-    return date.toLocaleDateString('zh-CN', {
+    return new Date(isoDate).toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -139,52 +112,35 @@ export function usePullRequests() {
     })
   }
 
-  /**
-   * 获取状态标签颜色
-   * @param status - PR 状态
-   */
+  /** Map PR status to design token color */
   function getStatusColor(status: string): string {
-    switch (status) {
-      case 'open':
-        return 'var(--color-success)'
-      case 'closed':
-        return 'var(--color-error)'
-      case 'merged':
-        return 'var(--color-info)'
-      default:
-        return 'var(--color-text-tertiary)'
+    const map: Record<string, string> = {
+      open: 'var(--color-success)',
+      closed: 'var(--color-error)',
+      merged: 'var(--color-info)',
     }
+    return map[status] ?? 'var(--color-text-tertiary)'
   }
 
-  /**
-   * 获取状态中文标签
-   * @param status - PR 状态
-   */
+  /** Map PR status to Chinese label */
   function getStatusLabel(status: string): string {
-    switch (status) {
-      case 'open':
-        return '开放'
-      case 'closed':
-        return '已关闭'
-      case 'merged':
-        return '已合并'
-      default:
-        return status
+    const map: Record<string, string> = {
+      open: '开放',
+      closed: '已关闭',
+      merged: '已合并',
     }
+    return map[status] ?? status
   }
 
   return {
-    // 状态
     pulls,
-    currentPull,
     loading,
     error,
-
-    // 方法
     fetchPulls,
     createPull,
-    updatePull,
+    applyPull,
     addComment,
+    fetchComments,
     formatDate,
     getStatusColor,
     getStatusLabel,

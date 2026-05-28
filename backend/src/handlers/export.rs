@@ -58,7 +58,8 @@ pub async fn export_posts(
         AppError::Internal(anyhow::anyhow!("Database not available"))
     })?;
 
-    let mut select = post::Entity::find();
+    let mut select = post::Entity::find()
+        .filter(post::Column::DeletedAt.is_null());
 
     if let Some(ref status) = query.status {
         let published = status == "published";

@@ -1,26 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ref } from 'vue'
 import { usePullRequests } from '../../composables/usePullRequests'
 
 vi.mock('../../lib/api', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
-    put: vi.fn(),
   },
 }))
 
 import api from '../../lib/api'
 
 describe('usePullRequests', () => {
+  const postId = ref(1)
+
   beforeEach(() => {
     vi.clearAllMocks()
+    postId.value = 1
   })
 
   it('initializes with empty state', () => {
-    const { pulls, currentPull, loading, error } = usePullRequests()
+    const { pulls, loading, error } = usePullRequests(postId)
 
     expect(pulls.value).toEqual([])
-    expect(currentPull.value).toBeNull()
     expect(loading.value).toBe(false)
     expect(error.value).toBeNull()
   })
@@ -30,8 +32,8 @@ describe('usePullRequests', () => {
       data: { items: [], total: 0 },
     })
 
-    const { loading, fetchPulls } = usePullRequests()
-    const promise = fetchPulls(1)
+    const { loading, fetchPulls } = usePullRequests(postId)
+    const promise = fetchPulls()
 
     expect(loading.value).toBe(true)
 
@@ -46,8 +48,9 @@ describe('usePullRequests', () => {
         id: 1,
         post_id: 1,
         user_email: 'test@test.com',
-        content: 'Fix typo',
-        status: 'open' as const,
+        fragments: [{ start_line: 1, start_col: 0, end_line: 1, end_col: 5, replacement: 'Hello' }],
+        message: 'Fix typo',
+        status: 'open',
         created_at: '2024-01-01T00:00:00Z',
       },
     ]
@@ -56,8 +59,8 @@ describe('usePullRequests', () => {
       data: { items: mockPulls, total: 1 },
     })
 
-    const { pulls, fetchPulls } = usePullRequests()
-    await fetchPulls(1)
+    const { pulls, fetchPulls } = usePullRequests(postId)
+    await fetchPulls()
 
     expect(pulls.value).toEqual(mockPulls)
   })
@@ -67,8 +70,20 @@ describe('usePullRequests', () => {
       data: { items: [], total: 0 },
     })
 
-    const { fetchPulls } = usePullRequests()
-    await fetchPulls(42)
+    const { fetchPulls } = usePullRequests(postId)
+    await fetchPulls()
+
+    expect(api.get).toHaveBeenCalledWith('/api/v1/posts/1/pulls')
+  })
+
+  it('fetchPulls uses reactive postId', async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { items: [], total: 0 },
+    })
+
+    const { fetchPulls } = usePullRequests(postId)
+    postId.value = 42
+    await fetchPulls()
 
     expect(api.get).toHaveBeenCalledWith('/api/v1/posts/42/pulls')
   })
@@ -76,193 +91,78 @@ describe('usePullRequests', () => {
   it('fetchPulls handles errors', async () => {
     vi.mocked(api.get).mockRejectedValue(new Error('Network error'))
 
-    const { error, fetchPulls } = usePullRequests()
-    await fetchPulls(1)
+    const { error, fetchPulls } = usePullRequests(postId)
+    await fetchPulls()
 
     expect(error.value).toBe('Network error')
   })
 
-  it('createPull returns success', async () => {
-    const mockPull = {
-      id: 1,
-      post_id: 1,
-      user_email: 'test@test.com',
-      content: 'New PR',
-      status: 'open' as const,
-      created_at: '2024-01-01T00:00:00Z',
-    }
+  it('createPull calls correct API endpoint', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: {} })
+    vi.mocked(api.get).mockResolvedValue({ data: { items: [], total: 0 } })
 
-    vi.mocked(api.post).mockResolvedValue({ data: mockPull })
+    const { createPull } = usePullRequests(postId)
+    const fragments = [{ start_line: 1, start_col: 0, end_line: 1, end_col: 5, replacement: 'Hello' }]
+    await createPull(fragments, 'Fix typo', 'test@test.com')
 
-    const { createPull } = usePullRequests()
-    const result = await createPull(1, {
+    expect(api.post).toHaveBeenCalledWith('/api/v1/posts/1/pulls', {
+      fragments,
+      message: 'Fix typo',
       user_email: 'test@test.com',
-      content: 'New PR',
     })
-
-    expect(result.success).toBe(true)
-    expect(result.data).toEqual(mockPull)
   })
 
-  it('createPull adds to pulls list', async () => {
-    const mockPull = {
-      id: 2,
-      post_id: 1,
-      user_email: 'test@test.com',
-      content: 'New PR',
-      status: 'open' as const,
-      created_at: '2024-01-01T00:00:00Z',
-    }
+  it('createPull refreshes pulls list after creation', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: {} })
+    vi.mocked(api.get).mockResolvedValue({ data: { items: [{ id: 1 }], total: 1 } })
 
-    vi.mocked(api.post).mockResolvedValue({ data: mockPull })
+    const { pulls, createPull } = usePullRequests(postId)
+    const fragments = [{ start_line: 1, start_col: 0, end_line: 1, end_col: 5, replacement: 'Hello' }]
+    await createPull(fragments, 'msg', 'test@test.com')
 
-    const { pulls, createPull } = usePullRequests()
-    await createPull(1, {
-      user_email: 'test@test.com',
-      content: 'New PR',
-    })
-
-    expect(pulls.value[0]).toEqual(mockPull)
+    expect(api.get).toHaveBeenCalled()
+    expect(pulls.value).toEqual([{ id: 1 }])
   })
 
-  it('createPull handles errors', async () => {
-    vi.mocked(api.post).mockRejectedValue(new Error('Creation failed'))
+  it('applyPull calls correct API endpoint', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: {} })
+    vi.mocked(api.get).mockResolvedValue({ data: { items: [], total: 0 } })
 
-    const { createPull } = usePullRequests()
-    const result = await createPull(1, {
-      user_email: 'test@test.com',
-      content: 'New PR',
-    })
+    const { applyPull } = usePullRequests(postId)
+    await applyPull(5)
 
-    expect(result.success).toBe(false)
-    expect(result.error).toBe('Creation failed')
-  })
-
-  it('updatePull returns success', async () => {
-    const mockUpdated = {
-      id: 1,
-      post_id: 1,
-      user_email: 'test@test.com',
-      content: 'PR content',
-      status: 'closed' as const,
-      created_at: '2024-01-01T00:00:00Z',
-    }
-
-    vi.mocked(api.put).mockResolvedValue({ data: mockUpdated })
-
-    const { updatePull } = usePullRequests()
-    const result = await updatePull(1, { status: 'closed' })
-
-    expect(result.success).toBe(true)
-  })
-
-  it('updatePull calls correct API endpoint', async () => {
-    vi.mocked(api.put).mockResolvedValue({
-      data: {
-        id: 5,
-        post_id: 1,
-        user_email: 'test@test.com',
-        content: 'PR',
-        status: 'merged',
-        created_at: '2024-01-01T00:00:00Z',
-      },
-    })
-
-    const { updatePull } = usePullRequests()
-    await updatePull(5, { status: 'merged' })
-
-    expect(api.put).toHaveBeenCalledWith('/api/v1/pulls/5', { status: 'merged' })
-  })
-
-  it('updatePull updates item in pulls list', async () => {
-    const initial = {
-      id: 1,
-      post_id: 1,
-      user_email: 'test@test.com',
-      content: 'PR',
-      status: 'open' as const,
-      created_at: '2024-01-01T00:00:00Z',
-    }
-    const updated = { ...initial, status: 'closed' as const }
-
-    vi.mocked(api.get).mockResolvedValue({
-      data: { items: [initial], total: 1 },
-    })
-    vi.mocked(api.put).mockResolvedValue({ data: updated })
-
-    const { pulls, fetchPulls, updatePull } = usePullRequests()
-    await fetchPulls(1)
-    await updatePull(1, { status: 'closed' })
-
-    expect(pulls.value[0].status).toBe('closed')
-  })
-
-  it('updatePull handles errors', async () => {
-    vi.mocked(api.put).mockRejectedValue(new Error('Update failed'))
-
-    const { updatePull } = usePullRequests()
-    const result = await updatePull(1, { status: 'closed' })
-
-    expect(result.success).toBe(false)
-    expect(result.error).toBe('Update failed')
-  })
-
-  it('addComment returns success', async () => {
-    const mockComment = {
-      id: 1,
-      pull_request_id: 1,
-      user_email: 'reviewer@test.com',
-      content: 'LGTM',
-      created_at: '2024-01-01T00:00:00Z',
-    }
-
-    vi.mocked(api.post).mockResolvedValue({ data: mockComment })
-
-    const { addComment } = usePullRequests()
-    const result = await addComment(1, {
-      user_email: 'reviewer@test.com',
-      content: 'LGTM',
-    })
-
-    expect(result.success).toBe(true)
-    expect(result.data).toEqual(mockComment)
+    expect(api.post).toHaveBeenCalledWith('/api/v1/pulls/5/apply')
   })
 
   it('addComment calls correct API endpoint', async () => {
-    vi.mocked(api.post).mockResolvedValue({
-      data: {
-        id: 1,
-        pull_request_id: 3,
-        user_email: 'test@test.com',
-        content: 'nice',
-        created_at: '2024-01-01T00:00:00Z',
-      },
-    })
+    vi.mocked(api.post).mockResolvedValue({ data: {} })
 
-    const { addComment } = usePullRequests()
-    await addComment(3, { user_email: 'test@test.com', content: 'nice' })
+    const { addComment } = usePullRequests(postId)
+    await addComment(3, 0, 5, 'nice', 'test@test.com')
 
     expect(api.post).toHaveBeenCalledWith('/api/v1/pulls/3/comments', {
-      user_email: 'test@test.com',
+      fragment_index: 0,
+      line: 5,
       content: 'nice',
+      user_email: 'test@test.com',
     })
   })
 
-  it('addComment handles errors', async () => {
-    vi.mocked(api.post).mockRejectedValue(new Error('Comment failed'))
+  it('fetchComments returns comments', async () => {
+    const mockComments = [
+      { id: 1, pull_request_id: 1, fragment_index: 0, line: 5, content: 'LGTM', user_email: 'a@b.com', created_at: '2024-01-01T00:00:00Z' },
+    ]
+    vi.mocked(api.get).mockResolvedValue({ data: mockComments })
 
-    const { addComment } = usePullRequests()
-    const result = await addComment(1, {
-      user_email: 'test@test.com',
-      content: 'comment',
-    })
+    const { fetchComments } = usePullRequests(postId)
+    const result = await fetchComments(1)
 
-    expect(result.success).toBe(false)
-    expect(result.error).toBe('Comment failed')
+    expect(api.get).toHaveBeenCalledWith('/api/v1/pulls/1/comments')
+    expect(result).toEqual(mockComments)
   })
 
   it('formatDate returns formatted date string', () => {
-    const { formatDate } = usePullRequests()
+    const { formatDate } = usePullRequests(postId)
     const result = formatDate('2024-01-15T10:30:00Z')
 
     expect(result).toBeTruthy()
@@ -270,7 +170,7 @@ describe('usePullRequests', () => {
   })
 
   it('getStatusColor returns correct colors', () => {
-    const { getStatusColor } = usePullRequests()
+    const { getStatusColor } = usePullRequests(postId)
 
     expect(getStatusColor('open')).toBeTruthy()
     expect(getStatusColor('closed')).toBeTruthy()
@@ -279,22 +179,11 @@ describe('usePullRequests', () => {
   })
 
   it('getStatusLabel returns Chinese labels', () => {
-    const { getStatusLabel } = usePullRequests()
+    const { getStatusLabel } = usePullRequests(postId)
 
     expect(getStatusLabel('open')).toBe('开放')
     expect(getStatusLabel('closed')).toBe('已关闭')
     expect(getStatusLabel('merged')).toBe('已合并')
     expect(getStatusLabel('other')).toBe('other')
-  })
-
-  it('fetchPulls accepts string postId', async () => {
-    vi.mocked(api.get).mockResolvedValue({
-      data: { items: [], total: 0 },
-    })
-
-    const { fetchPulls } = usePullRequests()
-    await fetchPulls('99')
-
-    expect(api.get).toHaveBeenCalledWith('/api/v1/posts/99/pulls')
   })
 })

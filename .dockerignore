@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+target/
+
+# Build output
+dist/
+coverage/
+
+# Version control
+.git/
+
+# Environment
+.env
+.env.example
+
+# Documentation
+*.md
+
+# OpenCode
+.omo/
+
+# Backups
+test_backups/
+backups/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+# Build artifacts
+target/
+
+# Backups
+test_backups/
+backups/
+
+# Version control
+.git/

@@ -22,7 +22,20 @@ export interface PostListResponse {
   per_page: number
 }
 
-/** API 返回的待办事项 */
+/** 回收站中的文章（包含删除时间） */
+export interface TrashPost extends Post {
+  deleted_at: string
+}
+
+/** 回收站分页列表响应 */
+export interface TrashListResponse {
+  items: TrashPost[]
+  total: number
+  page: number
+  per_page: number
+}
+
+/** API 返回的待办事项（从文章获取时无 subscriber_count） */
 export interface TodoItem {
   id: number
   post_id: number
@@ -30,6 +43,7 @@ export interface TodoItem {
   description: string | null
   completed: boolean
   created_at: string
+  subscriber_count?: number
 }
 
 /** 订阅者请求负载 */
@@ -119,16 +133,47 @@ export function usePosts() {
     }
   }
 
-  /**
-   * 创建新订阅者（邮箱订阅）
-   * @param payload - 订阅者邮箱和可选名称
-   */
   async function createSubscriber(payload: CreateSubscriberPayload) {
     try {
       const { data } = await api.post('/api/v1/subscribers', payload)
       return { success: true, data }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Subscription failed'
+      return { success: false, error: message }
+    }
+  }
+
+  async function fetchTodoSubscriberCounts(): Promise<Map<number, number>> {
+    try {
+      const { data } = await api.get<{ items: Array<{ id: number; subscriber_count: number }> }>('/api/v1/todos')
+      const counts = new Map<number, number>()
+      for (const item of data.items) {
+        counts.set(item.id, item.subscriber_count)
+      }
+      return counts
+    } catch {
+      return new Map()
+    }
+  }
+
+  async function subscribeToTodo(todoId: number, email?: string, userId?: number) {
+    try {
+      await api.post(`/api/v1/todos/${todoId}/subscribe`, { email, user_id: userId })
+      return { success: true }
+    } catch (err: unknown) {
+      const resp = (err as { response?: { status?: number; data?: { error?: string } } })?.response
+      if (resp?.status === 409) return { success: false, error: 'already_subscribed' }
+      const message = resp?.data?.error || (err instanceof Error ? err.message : '订阅失败')
+      return { success: false, error: message }
+    }
+  }
+
+  async function unsubscribeFromTodo(todoId: number, email?: string, userId?: number) {
+    try {
+      await api.delete(`/api/v1/todos/${todoId}/subscribe`, { data: { email, user_id: userId } })
+      return { success: true }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '取消订阅失败'
       return { success: false, error: message }
     }
   }
@@ -195,8 +240,60 @@ export function usePosts() {
     }
   }
 
+  async function fetchTrashPosts(page = 1, perPage = 10) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const params: Record<string, string | number> = { page, per_page: perPage }
+      const { data } = await api.get<TrashListResponse>('/api/v1/posts/trash', { params })
+
+      posts.value = data.items
+      pagination.page = data.page
+      pagination.perPage = data.per_page
+      pagination.total = data.total
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch trash posts'
+      error.value = message
+      console.error('fetchTrashPosts error:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function restorePost(id: number | string) {
+    loading.value = true
+    error.value = null
+
+    try {
+      await api.post(`/api/v1/posts/${id}/restore`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to restore post'
+      error.value = message
+      console.error('restorePost error:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function permanentDeletePost(id: number | string) {
+    loading.value = true
+    error.value = null
+
+    try {
+      await api.delete(`/api/v1/posts/${id}/permanent`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to permanently delete post'
+      error.value = message
+      console.error('permanentDeletePost error:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
-    // 状态
     posts,
     currentPost,
     postTodos,
@@ -204,14 +301,19 @@ export function usePosts() {
     error,
     pagination,
 
-    // 方法
     fetchPosts,
     fetchPost,
     fetchDrafts,
+    fetchTrashPosts,
     publishPost,
     deletePost,
+    restorePost,
+    permanentDeletePost,
     fetchPostTodos,
     createSubscriber,
+    fetchTodoSubscriberCounts,
+    subscribeToTodo,
+    unsubscribeFromTodo,
     formatDate,
   }
 }

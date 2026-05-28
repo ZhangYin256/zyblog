@@ -1,5 +1,6 @@
 use axum::{
-    extract::State,
+    extract::{Path, State},
+    http::StatusCode,
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -135,4 +136,43 @@ pub async fn restore_backup(
         message: "Database restored successfully".to_string(),
         filename: req.filename,
     }))
+}
+
+/// DELETE /api/v1/backup/:filename
+///
+/// Delete a backup file. Requires admin authentication.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/backup/{filename}",
+    params(
+        ("filename" = String, Path, description = "Backup filename to delete")
+    ),
+    responses(
+        (status = 204, description = "Backup file deleted successfully"),
+        (status = 400, description = "Invalid filename"),
+        (status = 404, description = "Backup file not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "backup"
+)]
+pub async fn delete_backup(
+    State(state): State<Arc<AppState>>,
+    Path(filename): Path<String>,
+) -> Result<StatusCode, AppError> {
+    let backup_dir = PathBuf::from(&state.config.backup_dir);
+    let file_path = backup_dir.join(&filename);
+
+    // Path traversal protection
+    if !file_path.starts_with(&backup_dir) {
+        return Err(AppError::BadRequest("Invalid filename".to_string()));
+    }
+
+    if !file_path.exists() {
+        return Err(AppError::NotFound("Backup file not found".to_string()));
+    }
+
+    tokio::fs::remove_file(&file_path)
+        .await
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to delete backup: {}", e)))?;
+    Ok(StatusCode::NO_CONTENT)
 }

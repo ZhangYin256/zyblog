@@ -1,30 +1,30 @@
-use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
+use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "pull_request_comments")]
+#[sea_orm(table_name = "refresh_tokens")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub pull_id: i32,
-    pub user_email: String,
-    pub content: String,
+    pub user_id: i32,
+    pub token_hash: String,
+    pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::pull::Entity",
-        from = "Column::PullId",
-        to = "super::pull::Column::Id"
+        belongs_to = "super::user::Entity",
+        from = "Column::UserId",
+        to = "super::user::Column::Id"
     )]
-    Pull,
+    User,
 }
 
-impl Related<super::pull::Entity> for Entity {
+impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Pull.def()
+        Relation::User.def()
     }
 }
 

@@ -1,6 +1,15 @@
 pub mod post;
+pub mod post_revision;
 pub mod todo_item;
 pub mod subscriber;
 pub mod image;
 pub mod pull_request;
 pub mod pull_request_comment;
+pub mod pr_comment;
+pub mod tag;
+pub mod post_tag;
+pub mod comment;
+pub mod user;
+pub mod refresh_token;
+pub mod media;
+pub mod todo_subscription;

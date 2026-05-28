@@ -29,6 +29,7 @@ const total = ref(0)
 const isLoading = ref(false)
 const isCreating = ref(false)
 const restoringFile = ref<string | null>(null)
+const deletingFile = ref<string | null>(null)
 const error = ref<string | null>(null)
 
 // Auth dialog
@@ -145,6 +146,34 @@ async function restoreBackup(filename: string) {
   }
 }
 
+async function deleteBackup(filename: string) {
+  if (!isAuthenticated.value) {
+    showAuthDialog.value = true
+    return
+  }
+
+  deletingFile.value = filename
+  error.value = null
+
+  try {
+    await api.delete(`/api/v1/backup/${filename}`)
+    message.success('备份已删除')
+    await fetchBackups()
+  } catch (err: any) {
+    const status = err.response?.status
+    if (status === 401) {
+      showAuthDialog.value = true
+      error.value = '认证失败，请检查管理密钥'
+    } else {
+      const msg = err.response?.data?.message || '删除失败'
+      error.value = msg
+      message.error(msg)
+    }
+  } finally {
+    deletingFile.value = null
+  }
+}
+
 // --- Auth ---
 function handleAuthSubmit() {
   if (!adminKeyInput.value.trim()) {
@@ -246,7 +275,7 @@ onMounted(() => {
                   <n-button
                     size="small"
                     :loading="restoringFile === backup.filename"
-                    :disabled="restoringFile !== null"
+                    :disabled="restoringFile !== null || deletingFile !== null"
                   >
                     {{ restoringFile === backup.filename ? '恢复中...' : '恢复' }}
                   </n-button>
@@ -257,6 +286,29 @@ onMounted(() => {
                     此操作将覆盖当前数据库数据，且不可撤销。
                   </p>
                   <p class="restore-confirm__file">{{ backup.filename }}</p>
+                </div>
+              </n-popconfirm>
+              <n-popconfirm
+                @positive-click="deleteBackup(backup.filename)"
+                positive-text="确认删除"
+                negative-text="取消"
+              >
+                <template #trigger>
+                  <n-button
+                    type="error"
+                    size="small"
+                    :loading="deletingFile === backup.filename"
+                    :disabled="restoringFile !== null || deletingFile !== null"
+                  >
+                    {{ deletingFile === backup.filename ? '删除中...' : '删除' }}
+                  </n-button>
+                </template>
+                <div class="delete-confirm">
+                  <p class="delete-confirm__title">确认删除此备份？</p>
+                  <p class="delete-confirm__desc">
+                    此操作将永久删除该备份文件，且不可恢复。
+                  </p>
+                  <p class="delete-confirm__file">{{ backup.filename }}</p>
                 </div>
               </n-popconfirm>
             </div>
@@ -420,6 +472,8 @@ onMounted(() => {
 
 .backup-card__actions {
   flex-shrink: 0;
+  display: flex;
+  gap: var(--space-2);
 }
 
 /* --- Restore Confirm --- */
@@ -442,6 +496,35 @@ onMounted(() => {
 }
 
 .restore-confirm__file {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-sunken);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+}
+
+/* --- Delete Confirm --- */
+.delete-confirm {
+  max-width: 280px;
+}
+
+.delete-confirm__title {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.delete-confirm__desc {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+  line-height: 1.5;
+}
+
+.delete-confirm__file {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
@@ -528,6 +611,7 @@ onMounted(() => {
 
   .backup-card__actions {
     width: 100%;
+    flex-direction: column;
   }
 
   .backup-card__actions .n-button {

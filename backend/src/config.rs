@@ -26,6 +26,20 @@ pub struct Config {
     pub backup_interval_hours: u64,
     /// Maximum number of backup files to retain
     pub backup_retention_count: usize,
+    /// JWT signing secret
+    pub jwt_secret: String,
+    /// JWT access token expiry in seconds (default 900 = 15 min)
+    pub jwt_access_expiry: u64,
+    /// JWT refresh token expiry in seconds (default 604800 = 7 days)
+    pub jwt_refresh_expiry: u64,
+    /// GitHub OAuth client ID
+    pub github_client_id: String,
+    /// GitHub OAuth client secret
+    pub github_client_secret: String,
+    /// GitHub OAuth redirect URI
+    pub github_redirect_uri: String,
+    /// Admin API key for backward-compatible Bearer token auth
+    pub admin_key: String,
 }
 
 impl Config {
@@ -60,6 +74,22 @@ impl Config {
             .parse()
             .unwrap_or(10);
 
+        let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "change-me-in-production".to_string());
+        let jwt_access_expiry: u64 = env::var("JWT_ACCESS_EXPIRY")
+            .unwrap_or_else(|_| "900".to_string())
+            .parse()
+            .unwrap_or(900);
+        let jwt_refresh_expiry: u64 = env::var("JWT_REFRESH_EXPIRY")
+            .unwrap_or_else(|_| "604800".to_string())
+            .parse()
+            .unwrap_or(604800);
+        let github_client_id = env::var("GITHUB_CLIENT_ID").unwrap_or_default();
+        let github_client_secret = env::var("GITHUB_CLIENT_SECRET").unwrap_or_default();
+        let github_redirect_uri =
+            env::var("GITHUB_REDIRECT_URI").unwrap_or_else(|_| "http://localhost:8080/api/v1/auth/github/callback".to_string());
+
+        let admin_key = env::var("ADMIN_KEY").unwrap_or_default();
+
         Ok(Self {
             server_addr,
             database_url,
@@ -72,6 +102,13 @@ impl Config {
             backup_dir,
             backup_interval_hours,
             backup_retention_count,
+            jwt_secret,
+            jwt_access_expiry,
+            jwt_refresh_expiry,
+            github_client_id,
+            github_client_secret,
+            github_redirect_uri,
+            admin_key,
         })
     }
 }

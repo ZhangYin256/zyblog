@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NUpload,
@@ -30,6 +30,7 @@ const error = ref<string | null>(null)
 const showAuthDialog = ref(false)
 const adminKeyInput = ref('')
 
+const editableTitle = ref('')
 const isDragOver = ref(false)
 
 // 类型
@@ -47,7 +48,7 @@ interface ParsedFrontmatter {
  * 简单的 frontmatter 解析器
  * 解析 --- 分隔符之间的类 YAML frontmatter
  */
-function parseFrontmatter(markdown: string): ParsedFrontmatter {
+function parseFrontmatter(markdown: string, filename?: string): ParsedFrontmatter {
   const lines = markdown.split('\n')
   let frontmatterEnd = -1
   let frontmatterStart = -1
@@ -84,6 +85,13 @@ function parseFrontmatter(markdown: string): ParsedFrontmatter {
   const contentStart = frontmatterEnd !== -1 ? frontmatterEnd + 1 : 0
   const content = lines.slice(contentStart).join('\n').trim()
 
+  // 提取 markdown 中第一个 # 标题
+  const h1Match = content.match(/^#\s+(.+)$/m)
+  const h1Title = h1Match ? h1Match[1].trim() : null
+
+  // 从文件名提取标题（去掉 .md 扩展名）
+  const fileTitle = filename ? filename.replace(/\.md$/i, '') : null
+
   // 解析标签（逗号分隔或数组格式）
   let tags: string[] = []
   if (metadata.tags) {
@@ -93,7 +101,7 @@ function parseFrontmatter(markdown: string): ParsedFrontmatter {
   }
 
   return {
-    title: metadata.title || 'Untitled',
+    title: metadata.title || h1Title || fileTitle || 'Untitled',
     content,
     excerpt: metadata.excerpt || metadata.description,
     coverImage: metadata.cover_image || metadata.coverImage || metadata.image,
@@ -125,7 +133,7 @@ function handleFileUpload(options: { file: UploadFileInfo }) {
     try {
       const content = e.target?.result as string
       fileContent.value = content
-      parsedData.value = parseFrontmatter(content)
+      parsedData.value = parseFrontmatter(content, file.name)
       isLoading.value = false
     } catch (err) {
       error.value = 'Failed to parse the markdown file.'
@@ -175,7 +183,7 @@ function handleDrop(e: DragEvent) {
     try {
       const content = e.target?.result as string
       fileContent.value = content
-      parsedData.value = parseFrontmatter(content)
+      parsedData.value = parseFrontmatter(content, file.name)
       isLoading.value = false
     } catch (err) {
       error.value = 'Failed to parse the markdown file.'
@@ -208,7 +216,7 @@ async function confirmImport() {
 
   try {
     const response = await api.post('/api/v1/posts', {
-      title: parsedData.value.title,
+      title: editableTitle.value,
       content: parsedData.value.content,
       excerpt: parsedData.value.excerpt,
       cover_image: parsedData.value.coverImage,
@@ -252,8 +260,16 @@ function handleAuthSubmit() {
 function resetImport() {
   fileContent.value = null
   parsedData.value = null
+  editableTitle.value = ''
   error.value = null
 }
+
+// 监听解析数据变化，设置可编辑标题
+watch(parsedData, (data) => {
+  if (data) {
+    editableTitle.value = data.title
+  }
+})
 
 // 计算属性
 const hasPreview = computed(() => parsedData.value !== null)
@@ -345,7 +361,12 @@ const formattedDate = computed(() => {
         </template>
 
         <!-- Title -->
-        <h3 class="preview-title">{{ parsedData?.title }}</h3>
+        <n-input
+          v-model:value="editableTitle"
+          placeholder="文章标题"
+          size="large"
+          class="preview-title-input"
+        />
 
         <!-- Meta Info -->
         <div class="preview-meta">
@@ -578,12 +599,16 @@ const formattedDate = computed(() => {
 }
 
 /* 预览内容 */
-.preview-title {
+.preview-title-input {
+  margin-bottom: var(--space-4);
+}
+
+:deep(.preview-title-input .n-input__input-el),
+:deep(.preview-title-input .n-input-wrapper) {
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 600;
   color: var(--color-text-primary);
-  margin-bottom: var(--space-4);
   line-height: 1.3;
 }
 
@@ -664,7 +689,8 @@ const formattedDate = computed(() => {
     font-size: var(--text-base);
   }
 
-  .preview-title {
+  :deep(.preview-title-input .n-input__input-el),
+  :deep(.preview-title-input .n-input-wrapper) {
     font-size: var(--text-xl);
   }
 

@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
+use sea_orm::JsonValue;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "pull_requests")]
@@ -11,6 +12,9 @@ pub struct Model {
     pub content: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
+    pub fragments: Option<JsonValue>,
+    pub user_id: Option<i32>,
+    pub message: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -23,6 +27,12 @@ pub enum Relation {
     Post,
     #[sea_orm(has_many = "super::pull_request_comment::Entity")]
     PullRequestComment,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::UserId",
+        to = "super::user::Column::Id"
+    )]
+    User,
 }
 
 impl Related<super::post::Entity> for Entity {
@@ -34,6 +44,12 @@ impl Related<super::post::Entity> for Entity {
 impl Related<super::pull_request_comment::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PullRequestComment.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
     }
 }
 

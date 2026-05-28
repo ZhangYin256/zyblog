@@ -26,6 +26,13 @@ fn test_state() -> Arc<AppState> {
             backup_dir: "./test_backups".to_string(),
             backup_interval_hours: 24,
             backup_retention_count: 10,
+            jwt_secret: "test-secret".to_string(),
+            jwt_access_expiry: 900,
+            jwt_refresh_expiry: 604800,
+            github_client_id: "".to_string(),
+            github_client_secret: "".to_string(),
+            github_redirect_uri: "http://localhost:8080/api/v1/auth/github/callback".to_string(),
+            admin_key: "test-admin-key".to_string(),
         },
     })
 }
@@ -48,12 +55,13 @@ fn pull_item_app() -> Router {
 fn create_pull_request_deserialize() {
     let json = r#"{
         "user_email": "contributor@example.com",
-        "content": "Fix typo in README"
+        "fragments": [{"start_line": 1, "start_col": 0, "end_line": 1, "end_col": 5, "replacement": "Fixed"}],
+        "message": "Fix typo in README"
     }"#;
 
     let req: CreatePullRequest = serde_json::from_str(json).unwrap();
     assert_eq!(req.user_email, "contributor@example.com");
-    assert_eq!(req.content, "Fix typo in README");
+    assert_eq!(req.message.as_deref(), Some("Fix typo in README"));
 }
 
 #[test]
@@ -80,8 +88,10 @@ fn update_pull_request_deserialize_merged() {
 #[test]
 fn add_comment_request_deserialize() {
     let json = r#"{
-        "user_email": "reviewer@example.com",
-        "content": "Looks good to me!"
+        "fragment_index": 0,
+        "line": 1,
+        "content": "Looks good to me!",
+        "user_email": "reviewer@example.com"
     }"#;
 
     let req: AddCommentRequest = serde_json::from_str(json).unwrap();

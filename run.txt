@@ -1,8 +1,9 @@
 # 启动数据库
 sudo service postgresql start
 # 启动后端
+# Set your admin key here (copy .env.example to .env and configure)
 cd ~/zyblog/backend
-DATABASE_URL=postgres://zyblog:zyblog_dev@localhost:5432/zyblog ADMIN_KEY=zyblog_admin_2024_secure_key cargo run
+DATABASE_URL=postgres://zyblog:zyblog_dev@localhost:5432/zyblog ADMIN_KEY=your_admin_key_here cargo run
 # 启动前端（另开终端）
 cd ~/zyblog/frontend
 npm run dev

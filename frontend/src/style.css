@@ -40,6 +40,7 @@
   --color-bg-elevated: #FFFFFF;
   --color-bg-sunken: #F0EDE8;
   --color-bg-sidebar: #2C2C2C;
+  --color-code-bg: #f6f8fa;
 
   --color-text-primary: #1A1A1A;
   --color-text-secondary: #6B6B6B;
@@ -79,6 +80,29 @@
   --header-height: 60px;
   --bottom-nav-height: 60px;
   --content-max-width: 960px;
+}
+
+/* --- Dark Mode Overrides --- */
+[data-theme="dark"] {
+  --color-bg: #1A1A1A;
+  --color-bg-elevated: #242424;
+  --color-bg-sunken: #141414;
+  --color-bg-sidebar: #1A1A1A;
+  --color-code-bg: #24292e;
+
+  --color-text-primary: #E8E8E8;
+  --color-text-secondary: #A0A0A0;
+  --color-text-tertiary: #707070;
+  --color-text-inverse: #1A1A1A;
+
+  --color-accent-light: rgba(196, 93, 62, 0.15);
+
+  --color-border: #333333;
+  --color-border-light: #2A2A2A;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* --- Global Reset --- */

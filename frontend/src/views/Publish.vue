@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { NButton, NInput, useMessage } from 'naive-ui'
+import { useRouter, useRoute } from 'vue-router'
+import { NButton, NInput, NSelect, useMessage } from 'naive-ui'
 import { useDebounceFn } from '@vueuse/core'
 import api from '../lib/api'
 import { useAuth } from '../composables/useAuth'
+import { useTags } from '../composables/useTags'
 
 const router = useRouter()
+const route = useRoute()
 const message = useMessage()
 const { isAuthenticated, setAdminKey } = useAuth()
+const { tags, fetchTags, assignTagsToPost } = useTags()
 
 // --- 状态 ---
 const title = ref('')
@@ -22,6 +25,7 @@ const isDragging = ref(false)
 const isPublishing = ref(false)
 const isEditing = ref(false) // true when editing an already-published post
 const editPostId = ref<string | null>(null)
+const selectedTagIds = ref<number[]>([])
 
 // --- 认证弹窗 ---
 const showAuthDialog = ref(false)
@@ -29,7 +33,6 @@ const adminKeyInput = ref('')
 
 // --- localStorage 草稿键 ---
 const DRAFT_KEY = 'zyblog_draft'
-const EDIT_KEY_PREFIX = 'zyblog_edit_'
 
 // --- 防抖自动保存 ---
 const debouncedSave = useDebounceFn(() => {
@@ -38,6 +41,7 @@ const debouncedSave = useDebounceFn(() => {
 
 function saveDraft() {
   if (!title.value && !content.value) return
+  if (isEditing.value) return
 
   isSaving.value = true
   const draft = {
@@ -46,8 +50,7 @@ function saveDraft() {
     savedAt: new Date().toISOString(),
   }
 
-  const key = isEditing.value ? `${EDIT_KEY_PREFIX}${editPostId.value}` : DRAFT_KEY
-  localStorage.setItem(key, JSON.stringify(draft))
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
 
   setTimeout(() => {
     isSaving.value = false
@@ -56,23 +59,12 @@ function saveDraft() {
 }
 
 function loadDraft() {
-  // 检查是否正在编辑现有文章
-  const urlParams = new URLSearchParams(window.location.search)
-  const editId = urlParams.get('edit')
+  const routeId = route.params.id as string | undefined
 
-  if (editId) {
+  if (routeId) {
     isEditing.value = true
-    editPostId.value = editId
-    const saved = localStorage.getItem(`${EDIT_KEY_PREFIX}${editId}`)
-    if (saved) {
-      try {
-        const draft = JSON.parse(saved)
-        title.value = draft.title || ''
-        content.value = draft.content || ''
-      } catch {
-        // 数据损坏，忽略
-      }
-    }
+    editPostId.value = routeId
+    fetchPostForEdit(routeId)
     return
   }
 
@@ -92,9 +84,19 @@ function loadDraft() {
   }
 }
 
+async function fetchPostForEdit(id: string) {
+  try {
+    const { data } = await api.get(`/api/v1/posts/${id}`)
+    title.value = data.title || ''
+    content.value = data.content || ''
+  } catch {
+    message.error('无法加载文章')
+    router.push('/drafts')
+  }
+}
+
 function clearDraft() {
-  const key = isEditing.value ? `${EDIT_KEY_PREFIX}${editPostId.value}` : DRAFT_KEY
-  localStorage.removeItem(key)
+  localStorage.removeItem(DRAFT_KEY)
   title.value = ''
   content.value = ''
   lastSavedAt.value = null
@@ -116,6 +118,11 @@ const savedStatusText = computed(() => {
   if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前保存`
   return '已保存草稿'
 })
+
+// --- 标签选项 ---
+const tagOptions = computed(() =>
+  tags.value.map((tag) => ({ label: tag.name, value: tag.id }))
+)
 
 // --- 格式化 ---
 function wrapSelection(prefix: string, suffix: string = '') {
@@ -354,18 +361,35 @@ async function handlePublish() {
   isPublishing.value = true
 
   try {
-    const { data } = await api.post('/api/v1/posts', {
-      title: title.value.trim(),
-      content: content.value.trim(),
-      status: 'published',
-    })
+    let data: { id: number }
+
+    if (isEditing.value && editPostId.value) {
+      const response = await api.put(`/api/v1/posts/${editPostId.value}`, {
+        title: title.value.trim(),
+        content: content.value.trim(),
+        status: 'published',
+      })
+      data = response.data
+    } else {
+      const response = await api.post('/api/v1/posts', {
+        title: title.value.trim(),
+        content: content.value.trim(),
+        status: 'published',
+      })
+      data = response.data
+    }
+
+    // Assign tags to the newly created/updated post
+    if (selectedTagIds.value.length > 0) {
+      await assignTagsToPost(data.id, selectedTagIds.value)
+    }
 
     // 发布成功后清除草稿
     clearDraft()
 
-    message.success('发布成功！')
+    message.success(isEditing.value ? '更新成功！' : '发布成功！')
 
-    // 导航到文章详情（data.id 是扁平化响应中的文章 ID）
+    // 导航到文章详情
     router.push(`/posts/${data.id}`)
   } catch (err: any) {
     const status = err.response?.status
@@ -383,6 +407,7 @@ async function handlePublish() {
 // --- 生命周期 ---
 onMounted(() => {
   loadDraft()
+  fetchTags()
   document.addEventListener('keydown', handleKeydown)
 })
 
@@ -418,7 +443,7 @@ onUnmounted(() => {
           @click="handlePublish"
           :disabled="!title.trim() || !content.trim()"
         >
-          {{ isPublishing ? '发布中...' : '发布' }}
+          {{ isPublishing ? (isEditing ? '更新中...' : '发布中...') : (isEditing ? '更新' : '发布') }}
         </NButton>
       </div>
     </header>
@@ -479,6 +504,19 @@ onUnmounted(() => {
         </button>
       </div>
 
+      <!-- Tag Selector -->
+      <div class="publish-tags">
+        <n-select
+          v-model:value="selectedTagIds"
+          :options="tagOptions"
+          multiple
+          filterable
+          placeholder="选择标签..."
+          :max-tag-count="5"
+          size="small"
+        />
+      </div>
+
       <!-- Content Textarea -->
       <div class="publish-content-wrapper">
         <textarea
@@ -518,7 +556,7 @@ onUnmounted(() => {
       <div class="auth-dialog">
         <h3 class="auth-dialog__title">管理员认证</h3>
         <p class="auth-dialog__desc">
-          请输入管理密钥以发布文章
+          {{ isEditing ? '请输入管理密钥以更新文章' : '请输入管理密钥以发布文章' }}
         </p>
         <div class="auth-dialog__field">
           <label class="auth-dialog__label" for="admin-key">管理密钥</label>
@@ -700,6 +738,11 @@ onUnmounted(() => {
   height: 20px;
   background: var(--color-border-light);
   margin: 0 var(--space-1);
+}
+
+/* --- 标签选择器 --- */
+.publish-tags {
+  padding: var(--space-2) 0;
 }
 
 /* --- 内容文本区域 --- */

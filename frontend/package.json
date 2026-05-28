@@ -9,11 +9,18 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@vueuse/core": "^14.3.0",
     "axios": "^1.16.1",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.17.0",
+    "markdown-it": "^14.2.0",
+    "markdown-it-highlightjs": "^4.3.0",
+    "markdown-it-katex": "^2.0.3",
+    "mermaid": "^11.15.0",
     "naive-ui": "^2.44.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.12",
@@ -21,6 +28,8 @@
   },
   "devDependencies": {
     "@pinia/testing": "^1.0.3",
+    "@playwright/test": "^1.60.0",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.19.41",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vitest/coverage-v8": "^4.1.7",

@@ -1,7 +1,13 @@
+pub mod auth;
 pub mod backup;
+pub mod comments;
 pub mod export;
 pub mod images;
+pub mod media;
 pub mod posts;
 pub mod subscribers;
 pub mod pulls;
+pub mod revisions;
+pub mod tags;
+pub mod todos;
 pub mod videos;

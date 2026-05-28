@@ -4,14 +4,14 @@ use axum::{
 };
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, ModelTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, Set,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::error::AppError;
-use crate::models::{post, todo_item};
+use crate::models::{post, post_revision, todo_item};
 use crate::state::AppState;
 use crate::tasks::email::notify_subscribers_on_update;
 
@@ -41,6 +41,12 @@ pub struct ListPostsQuery {
     pub page: Option<u64>,
     pub per_page: Option<u64>,
     pub status: Option<String>,
+}
+
+/// 文章搜索查询参数
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct SearchPostsQuery {
+    pub q: String,
 }
 
 /// 文章响应表示
@@ -253,7 +259,8 @@ pub async fn list_posts(
     let page = query.page.unwrap_or(1).max(1);
     let per_page = query.per_page.unwrap_or(10).clamp(1, 100);
 
-    let mut select = post::Entity::find();
+    let mut select = post::Entity::find()
+        .filter(post::Column::DeletedAt.is_null());
 
     // 按状态筛选（如果提供）
     if let Some(ref status) = query.status {
@@ -278,6 +285,53 @@ pub async fn list_posts(
         total,
         page,
         per_page,
+    }))
+}
+
+/// GET /api/v1/posts/search?q={query} - 按标题和内容搜索文章
+#[utoipa::path(
+    get,
+    path = "/api/v1/posts/search",
+    params(
+        ("q" = String, Query, description = "Search query"),
+    ),
+    responses(
+        (status = 200, description = "Search results", body = PostListResponse)
+    ),
+    tag = "posts"
+)]
+pub async fn search_posts(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<SearchPostsQuery>,
+) -> Result<Json<PostListResponse>, AppError> {
+    let db = state.db.as_ref().ok_or_else(|| {
+        AppError::Internal(anyhow::anyhow!("Database not available"))
+    })?;
+
+    let search_term = format!("%{}%", query.q);
+
+    let select = post::Entity::find()
+        .filter(post::Column::DeletedAt.is_null())
+        .filter(
+        Condition::any()
+            .add(post::Column::Title.contains(&search_term))
+            .add(post::Column::Content.contains(&search_term)),
+    );
+
+    let total = select.clone().count(db).await?;
+
+    let posts = select
+        .order_by_desc(post::Column::CreatedAt)
+        .all(db)
+        .await?;
+
+    let items = posts.iter().map(post_to_response).collect();
+
+    Ok(Json(PostListResponse {
+        items,
+        total,
+        page: 1,
+        per_page: total,
     }))
 }
 
@@ -341,8 +395,26 @@ pub async fn update_post(
         .ok_or_else(|| AppError::NotFound(format!("Post with id {} not found", id)))?;
 
     let was_published = existing_post.published;
+    let current_version = existing_post.current_version;
+
+    // Auto-create revision snapshot before applying changes
+    let revision = post_revision::ActiveModel {
+        post_id: Set(id),
+        title: Set(Some(existing_post.title.clone())),
+        content: Set(Some(existing_post.content.clone())),
+        excerpt: Set(existing_post.excerpt.clone()),
+        cover_image: Set(existing_post.cover_image.clone()),
+        version: Set(current_version),
+        created_by: Set(existing_post.author_id),
+        created_at: Set(Utc::now()),
+        ..Default::default()
+    };
+    revision.insert(db).await?;
 
     let mut active_model: post::ActiveModel = existing_post.into();
+
+    // Increment version
+    active_model.current_version = Set(current_version + 1);
 
     if let Some(title) = body.title {
         if title.trim().is_empty() {
@@ -418,7 +490,7 @@ pub async fn update_post(
     Ok(Json(post_to_response(&updated_post)))
 }
 
-/// DELETE /api/v1/posts/:id - 删除文章
+/// DELETE /api/v1/posts/:id - 软删除文章（设置 deleted_at）
 #[utoipa::path(
     delete,
     path = "/api/v1/posts/{id}",
@@ -426,7 +498,7 @@ pub async fn update_post(
         ("id" = i32, Path, description = "Post ID"),
     ),
     responses(
-        (status = 204, description = "Post deleted"),
+        (status = 204, description = "Post soft-deleted"),
         (status = 404, description = "Post not found")
     ),
     tag = "posts"
@@ -444,13 +516,9 @@ pub async fn delete_post(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Post with id {} not found", id)))?;
 
-    // 先删除关联的待办事项
-    todo_item::Entity::delete_many()
-        .filter(todo_item::Column::PostId.eq(id))
-        .exec(db)
-        .await?;
-
-    post.delete(db).await?;
+    let mut active_model: post::ActiveModel = post.into();
+    active_model.deleted_at = Set(Some(Utc::now()));
+    active_model.update(db).await?;
 
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
@@ -492,6 +560,120 @@ pub async fn get_post_todos(
     let response = todos.iter().map(todo_to_response).collect();
 
     Ok(Json(response))
+}
+
+/// GET /api/v1/posts/trash - 获取回收站文章列表
+#[utoipa::path(
+    get,
+    path = "/api/v1/posts/trash",
+    params(
+        ("page" = Option<u64>, Query, description = "Page number (default: 1)"),
+        ("per_page" = Option<u64>, Query, description = "Items per page (default: 10, max: 100)"),
+    ),
+    responses(
+        (status = 200, description = "List of soft-deleted posts", body = PostListResponse)
+    ),
+    tag = "posts"
+)]
+pub async fn trash_posts(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<ListPostsQuery>,
+) -> Result<Json<PostListResponse>, AppError> {
+    let db = state.db.as_ref().ok_or_else(|| {
+        AppError::Internal(anyhow::anyhow!("Database not available"))
+    })?;
+
+    let page = query.page.unwrap_or(1).max(1);
+    let per_page = query.per_page.unwrap_or(10).clamp(1, 100);
+
+    let select = post::Entity::find()
+        .filter(post::Column::DeletedAt.is_not_null());
+
+    let total = select.clone().count(db).await?;
+
+    let posts = select
+        .order_by_desc(post::Column::DeletedAt)
+        .paginate(db, per_page)
+        .fetch_page(page - 1)
+        .await?;
+
+    let items = posts.iter().map(post_to_response).collect();
+
+    Ok(Json(PostListResponse {
+        items,
+        total,
+        page,
+        per_page,
+    }))
+}
+
+/// POST /api/v1/posts/:id/restore - 恢复已删除的文章
+#[utoipa::path(
+    post,
+    path = "/api/v1/posts/{id}/restore",
+    params(
+        ("id" = i32, Path, description = "Post ID"),
+    ),
+    responses(
+        (status = 200, description = "Post restored", body = PostResponse),
+        (status = 404, description = "Post not found")
+    ),
+    tag = "posts"
+)]
+pub async fn restore_post(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<Json<PostResponse>, AppError> {
+    let db = state.db.as_ref().ok_or_else(|| {
+        AppError::Internal(anyhow::anyhow!("Database not available"))
+    })?;
+
+    let post = post::Entity::find_by_id(id)
+        .one(db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("Post with id {} not found", id)))?;
+
+    let mut active_model: post::ActiveModel = post.into();
+    active_model.deleted_at = Set(None);
+    let restored = active_model.update(db).await?;
+
+    Ok(Json(post_to_response(&restored)))
+}
+
+/// DELETE /api/v1/posts/:id/permanent - 永久删除文章
+#[utoipa::path(
+    delete,
+    path = "/api/v1/posts/{id}/permanent",
+    params(
+        ("id" = i32, Path, description = "Post ID"),
+    ),
+    responses(
+        (status = 204, description = "Post permanently deleted"),
+        (status = 404, description = "Post not found")
+    ),
+    tag = "posts"
+)]
+pub async fn permanent_delete_post(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+) -> Result<axum::http::StatusCode, AppError> {
+    let db = state.db.as_ref().ok_or_else(|| {
+        AppError::Internal(anyhow::anyhow!("Database not available"))
+    })?;
+
+    let post = post::Entity::find_by_id(id)
+        .one(db)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("Post with id {} not found", id)))?;
+
+    todo_item::Entity::delete_many()
+        .filter(todo_item::Column::PostId.eq(id))
+        .exec(db)
+        .await?;
+
+    post.delete(db).await?;
+
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 #[cfg(test)]

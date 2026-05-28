@@ -1,125 +1,283 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { NSpin, NEmpty, NButton, NPagination } from 'naive-ui'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { NSpin, NEmpty, NButton, NPagination, NInput, NTag, NSpace } from 'naive-ui'
+import { useDebounceFn } from '@vueuse/core'
 import { usePosts } from '../composables/usePosts'
+import { useSearch } from '../composables/useSearch'
+import { useTags } from '../composables/useTags'
+import type { Post } from '../composables/usePosts'
+import type { Tag } from '../composables/useTags'
+import ArticleCard from '../components/ArticleCard.vue'
+import HeroSection from '../components/HeroSection.vue'
 
 const router = useRouter()
+const route = useRoute()
 const {
   posts,
   loading,
   error,
   pagination,
   fetchPosts,
-  formatDate,
 } = usePosts()
+
+const {
+  results: searchResults,
+  loading: searchLoading,
+  error: searchError,
+  total: searchTotal,
+  searched,
+  searchPosts,
+  clearSearch,
+} = useSearch()
+
+// 标签筛选
+const {
+  tags,
+  fetchTags,
+  fetchPostTags,
+} = useTags()
+
+// 文章标签缓存
+const postTagsMap = ref<Map<number, Tag[]>>(new Map())
+
+const searchQuery = ref('')
+const isSearching = computed(() => searchQuery.value.trim().length > 0)
+const activeTagId = ref<number | null>(null)
+const filteredPosts = ref<Post[] | null>(null)
+
+// 根据 activeTagId 获取对应的 tag slug（用于 URL 同步）
+const activeTagSlug = computed(() => {
+  if (activeTagId.value === null) return null
+  const tag = tags.value.find((t) => t.id === activeTagId.value)
+  return tag?.slug ?? null
+})
+
+// 当前展示的文章列表：标签筛选 > 搜索模式 > 普通列表
+const displayPosts = computed<Post[]>(() => {
+  if (filteredPosts.value !== null) return filteredPosts.value
+  return isSearching.value ? searchResults.value : posts.value
+})
+const displayLoading = computed(() =>
+  isSearching.value ? searchLoading.value : loading.value
+)
+const displayError = computed(() =>
+  isSearching.value ? searchError.value : error.value
+)
 
 // 计算总页数
 const totalPages = computed(() =>
   Math.ceil(pagination.total / pagination.perPage)
 )
 
-// 导航到文章详情
-function goToPost(id: number) {
-  router.push(`/posts/${id}`)
-}
+// 防抖搜索函数（300ms）
+const debouncedSearch = useDebounceFn((query: string) => {
+  const queryObj: Record<string, string> = {}
+  if (activeTagSlug.value) queryObj.tag = activeTagSlug.value
+  if (query.trim()) {
+    searchPosts(query)
+    queryObj.q = query
+    router.replace({ query: queryObj })
+  } else {
+    clearSearch()
+    router.replace({ query: queryObj })
+  }
+}, 300)
 
-// 处理页码变化
+// 监听搜索输入变化
+watch(searchQuery, (newQuery) => {
+  debouncedSearch(newQuery)
+})
+
+// 当展示的文章列表变化时，加载标签
+watch(displayPosts, (newPosts) => {
+  if (newPosts.length > 0) {
+    loadPostTags(newPosts)
+  } else {
+    postTagsMap.value = new Map()
+  }
+})
+
+// 处理页码变化（仅普通列表模式）
 function handlePageChange(page: number) {
   fetchPosts(page, pagination.perPage)
-  // 页码变化时滚动到顶部
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// 格式化相对时间（如 "3 天前"）
-function relativeTime(isoDate: string): string {
-  const now = new Date()
-  const date = new Date(isoDate)
-  const diffMs = now.getTime() - date.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) return '今天'
-  if (diffDays === 1) return '昨天'
-  if (diffDays < 7) return `${diffDays} 天前`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} 周前`
-  return formatDate(isoDate)
+// 清除搜索
+function handleClearSearch() {
+  searchQuery.value = ''
+  clearSearch()
+  const query: Record<string, string> = {}
+  if (activeTagSlug.value) query.tag = activeTagSlug.value
+  router.replace({ query })
 }
 
-// 截断摘要到合理长度
-function truncateExcerpt(text: string | null, maxLen = 120): string {
-  if (!text) return ''
-  if (text.length <= maxLen) return text
-  return text.slice(0, maxLen).trimEnd() + '…'
+// 切换标签筛选
+async function toggleTag(tagId: number) {
+  if (activeTagId.value === tagId) {
+    // 取消选中
+    activeTagId.value = null
+    filteredPosts.value = null
+    syncTagToUrl(null)
+    return
+  }
+
+  activeTagId.value = tagId
+
+  // 同步到 URL
+  const tag = tags.value.find((t) => t.id === tagId)
+  syncTagToUrl(tag?.slug ?? null)
+
+  // 获取当前展示文章的标签，筛选匹配的文章
+  const postsToFilter = isSearching.value ? searchResults.value : posts.value
+  const results = await Promise.all(
+    postsToFilter.map(async (post) => {
+      const postTags = await fetchPostTags(post.id)
+      return { post, hasTag: postTags.some((t) => t.id === tagId) }
+    })
+  )
+  filteredPosts.value = results.filter((r) => r.hasTag).map((r) => r.post)
+}
+
+// 重置标签筛选
+function resetTagFilter() {
+  activeTagId.value = null
+  filteredPosts.value = null
+  syncTagToUrl(null)
+}
+
+// 将标签 slug 同步到 URL query 参数
+function syncTagToUrl(slug: string | null) {
+  const query = { ...route.query }
+  if (slug) {
+    query.tag = slug
+  } else {
+    delete query.tag
+  }
+  router.replace({ query })
+}
+
+// 加载文章标签
+async function loadPostTags(posts: Post[]) {
+  const entries = await Promise.all(
+    posts.map(async (post) => {
+      const postTags = await fetchPostTags(post.id)
+      return [post.id, postTags] as [number, Tag[]]
+    })
+  )
+  postTagsMap.value = new Map(entries)
 }
 
 onMounted(() => {
+  // 从 URL 恢复搜索状态
+  const qParam = route.query.q
+  if (typeof qParam === 'string' && qParam.trim()) {
+    searchQuery.value = qParam
+    searchPosts(qParam)
+  }
+
   fetchPosts(1, 10, 'published')
+
+  // 获取标签并从 URL 恢复选中状态
+  fetchTags().then(() => {
+    const tagParam = route.query.tag
+    if (typeof tagParam === 'string' && tagParam.trim()) {
+      const matchedTag = tags.value.find((t) => t.slug === tagParam)
+      if (matchedTag) {
+        toggleTag(matchedTag.id)
+      }
+    }
+  })
 })
 </script>
 
 <template>
   <div class="home">
-    <!-- Page Header -->
-    <header class="home__header">
-      <h1 class="home__title">文章</h1>
-      <p class="home__subtitle">思考、记录与分享</p>
-    </header>
+    <!-- Hero Section -->
+    <HeroSection />
+
+    <!-- Search Bar -->
+    <div class="home__search">
+      <n-input
+        v-model:value="searchQuery"
+        placeholder="搜索文章…"
+        clearable
+        size="large"
+        :loading="searchLoading"
+        @clear="handleClearSearch"
+      >
+        <template #prefix>
+          <span class="search-icon">⌕</span>
+        </template>
+      </n-input>
+      <p v-if="isSearching && searched && !searchLoading" class="home__search-meta">
+        找到 {{ searchTotal }} 篇相关文章
+      </p>
+    </div>
+
+    <!-- Tag Filter -->
+    <div v-if="tags.length > 0" class="home__tags">
+      <span class="home__tags-label">按标签筛选</span>
+      <n-space :size="8" align="center">
+        <n-tag
+          :checked="activeTagId === null"
+          checkable
+          round
+          size="medium"
+          @update:checked="resetTagFilter"
+        >
+          全部
+        </n-tag>
+        <n-tag
+          v-for="tag in tags"
+          :key="tag.id"
+          checkable
+          :checked="activeTagId === tag.id"
+          round
+          size="medium"
+          @update:checked="toggleTag(tag.id)"
+        >
+          {{ tag.name }}
+        </n-tag>
+      </n-space>
+    </div>
 
     <!-- Loading State -->
-    <div v-if="loading && posts.length === 0" class="home__loading">
+    <div v-if="displayLoading && displayPosts.length === 0" class="home__loading">
       <n-spin size="large" />
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="home__error">
-      <p>{{ error }}</p>
-      <n-button @click="fetchPosts(1, 10, 'published')">重试</n-button>
+    <div v-else-if="displayError" class="home__error">
+      <p>{{ displayError }}</p>
+      <n-button v-if="!isSearching" @click="fetchPosts(1, 10, 'published')">重试</n-button>
+      <n-button v-else @click="searchPosts(searchQuery)">重试</n-button>
     </div>
 
-    <!-- Empty State -->
-    <div v-else-if="posts.length === 0" class="home__empty">
+    <!-- Search Empty State -->
+    <div v-else-if="isSearching && searched && searchResults.length === 0" class="home__empty">
+      <n-empty description="未找到相关文章" />
+      <n-button quaternary @click="handleClearSearch">清除搜索</n-button>
+    </div>
+
+    <!-- Normal Empty State -->
+    <div v-else-if="!isSearching && posts.length === 0" class="home__empty">
       <n-empty description="暂无文章" />
     </div>
 
     <!-- Post List -->
-    <div v-else class="post-list">
-      <article
-        v-for="post in posts"
+    <div v-else class="article-grid">
+      <ArticleCard
+        v-for="post in displayPosts"
         :key="post.id"
-        class="post-card"
-        @click="goToPost(post.id)"
-      >
-        <!-- Cover Image (if exists) -->
-        <div v-if="post.cover_image" class="post-card__cover">
-          <img :src="post.cover_image" :alt="post.title" loading="lazy" />
-        </div>
-
-        <!-- Content -->
-        <div class="post-card__body">
-          <div class="post-card__meta">
-            <time class="post-card__date" :datetime="post.created_at">
-              {{ relativeTime(post.created_at) }}
-            </time>
-            <span v-if="post.status === 'draft'" class="post-card__badge">
-              草稿
-            </span>
-          </div>
-
-          <h2 class="post-card__title">{{ post.title }}</h2>
-
-          <p v-if="post.excerpt" class="post-card__excerpt">
-            {{ truncateExcerpt(post.excerpt) }}
-          </p>
-
-          <div class="post-card__footer">
-            <span class="post-card__read-more">阅读全文 →</span>
-          </div>
-        </div>
-      </article>
+        :post="post"
+        :tags="postTagsMap.get(post.id)"
+      />
     </div>
 
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="pagination-wrapper">
+    <!-- Pagination (only in normal mode) -->
+    <div v-if="!isSearching && totalPages > 1" class="pagination-wrapper">
       <n-pagination
         v-model:page="pagination.page"
         :page-count="totalPages"
@@ -147,26 +305,35 @@ onMounted(() => {
   }
 }
 
-/* --- 头部 --- */
-.home__header {
-  margin-bottom: var(--space-10);
-  padding-bottom: var(--space-6);
-  border-bottom: 1px solid var(--color-border);
+/* --- 搜索栏 --- */
+.home__search {
+  margin-bottom: var(--space-8);
 }
 
-.home__title {
-  font-family: var(--font-display);
-  font-size: var(--text-4xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  letter-spacing: -0.03em;
-  margin-bottom: var(--space-2);
-}
-
-.home__subtitle {
+.search-icon {
   font-size: var(--text-lg);
   color: var(--color-text-tertiary);
-  font-weight: 300;
+  line-height: 1;
+}
+
+.home__search-meta {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-2);
+}
+
+/* --- 标签筛选 --- */
+.home__tags {
+  margin-bottom: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.home__tags-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  font-weight: 400;
 }
 
 /* --- 加载/错误/空状态 --- */
@@ -186,129 +353,11 @@ onMounted(() => {
   font-size: var(--text-base);
 }
 
-/* --- 文章列表 --- */
-.post-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-/* --- 文章卡片 --- */
-.post-card {
-  display: flex;
+/* --- 文章列表网格 --- */
+.article-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-6);
-  padding: var(--space-6) var(--space-4);
-  border-bottom: 1px solid var(--color-border-light);
-  cursor: pointer;
-  transition:
-    background-color var(--transition-fast),
-    padding-left var(--transition-fast);
-  border-radius: var(--radius-md);
-  position: relative;
-}
-
-.post-card:hover {
-  background-color: var(--color-bg-sunken);
-  padding-left: var(--space-6);
-}
-
-.post-card:hover .post-card__title {
-  color: var(--color-accent);
-}
-
-.post-card:hover .post-card__read-more {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-/* --- 封面图片 --- */
-.post-card__cover {
-  flex-shrink: 0;
-  width: 120px;
-  height: 80px;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--color-bg-sunken);
-}
-
-.post-card__cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform var(--transition-base);
-}
-
-.post-card:hover .post-card__cover img {
-  transform: scale(1.05);
-}
-
-/* --- 卡片内容 --- */
-.post-card__body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.post-card__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.post-card__date {
-  font-size: var(--text-sm);
-  color: var(--color-text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-
-.post-card__badge {
-  font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--color-warning);
-  background: rgba(196, 155, 62, 0.1);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.post-card__title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  line-height: 1.4;
-  transition: color var(--transition-fast);
-  letter-spacing: -0.01em;
-}
-
-.post-card__excerpt {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.post-card__footer {
-  margin-top: auto;
-  padding-top: var(--space-1);
-}
-
-.post-card__read-more {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--color-accent);
-  opacity: 0;
-  transform: translateX(-8px);
-  transition:
-    opacity var(--transition-fast),
-    transform var(--transition-fast);
-  display: inline-block;
 }
 
 /* --- 分页 --- */
@@ -322,25 +371,8 @@ onMounted(() => {
 
 /* --- 响应式 --- */
 @media (max-width: 767px) {
-  .home__title {
-    font-size: var(--text-3xl);
-  }
-
-  .post-card {
-    flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-4) 0;
-  }
-
-  .post-card__cover {
-    width: 100%;
-    height: 160px;
-    border-radius: var(--radius-md);
-  }
-
-  .post-card__read-more {
-    opacity: 1;
-    transform: translateX(0);
+  .article-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

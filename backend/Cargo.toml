@@ -30,6 +30,13 @@ tower-http = { version = "0.6", features = ["fs"] }
 utoipa = { version = "5", features = ["axum_extras", "chrono"] }
 csv = "1"
 flate2 = "1"
+jsonwebtoken = "9"
+octocrab = "0.38"
+bcrypt = "0.16"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+urlencoding = "2"
+async-trait = "0.1"
+similar = "2"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

@@ -2,15 +2,16 @@ use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "pull_requests")]
+#[sea_orm(table_name = "comments")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub post_id: i32,
-    pub user_email: String,
-    pub title: String,
+    pub author_name: String,
+    pub author_email: Option<String>,
     pub content: String,
-    pub status: String,
+    pub approved: bool,
+    pub referenced_content: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -23,19 +24,11 @@ pub enum Relation {
         to = "super::post::Column::Id"
     )]
     Post,
-    #[sea_orm(has_many = "super::pull_comment::Entity")]
-    PullComment,
 }
 
 impl Related<super::post::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Post.def()
-    }
-}
-
-impl Related<super::pull_comment::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::PullComment.def()
     }
 }
 

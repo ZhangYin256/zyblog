@@ -27,6 +27,13 @@ fn test_state() -> Arc<AppState> {
             backup_dir: "./test_backups".to_string(),
             backup_interval_hours: 24,
             backup_retention_count: 10,
+            jwt_secret: "test-secret".to_string(),
+            jwt_access_expiry: 900,
+            jwt_refresh_expiry: 604800,
+            github_client_id: "".to_string(),
+            github_client_secret: "".to_string(),
+            github_redirect_uri: "http://localhost:8080/api/v1/auth/github/callback".to_string(),
+            admin_key: "test-admin-key".to_string(),
         },
     })
 }
